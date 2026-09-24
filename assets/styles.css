@@ -1,0 +1,156 @@
+/* ---------- Tipografía y fondo ---------- */
+.radix-themes {
+  --default-font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  --code-font-family: "JetBrains Mono", monospace;
+}
+
+.fondo {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(139, 92, 246, 0.28), transparent 40%),
+    radial-gradient(circle at 90% 25%, rgba(6, 182, 212, 0.18), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(244, 63, 94, 0.12), transparent 45%),
+    #0a0a13;
+}
+
+.titulo-gradiente {
+  background: linear-gradient(90deg, #c4b5fd, #818cf8, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Tarjetas de vidrio ---------- */
+.vidrio {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  border-radius: 22px;
+  padding: 24px;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Selector de algoritmo ---------- */
+.tarjeta-algo {
+  cursor: pointer;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.25s ease;
+  height: 100%;
+}
+.tarjeta-algo:hover {
+  transform: translateY(-4px);
+  border-color: rgba(167, 139, 250, 0.5);
+}
+.tarjeta-algo.activa {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(6, 182, 212, 0.18));
+  border-color: rgba(167, 139, 250, 0.9);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 12px 35px rgba(139, 92, 246, 0.35);
+}
+.icono-algo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.15);
+  color: #c4b5fd;
+}
+.tarjeta-algo.activa .icono-algo {
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  color: white;
+}
+
+/* ---------- Botón principal ---------- */
+.boton-simular {
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4) !important;
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.boton-simular:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.6);
+}
+
+/* ---------- Diagrama de Gantt ---------- */
+@keyframes crecer {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+.bloque {
+  transform-origin: left center;
+  animation: crecer 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.barra {
+  position: relative;
+  overflow: hidden;
+  height: 60px;
+  border-right: 2px solid #0a0a13;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+/* Destello que recorre cada bloque cuando aparece */
+.barra::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: barrido 0.9s 0.35s ease forwards;
+}
+@keyframes barrido {
+  to { transform: translateX(100%); }
+}
+
+.primero .barra { border-radius: 12px 0 0 12px; }
+
+.marca {
+  position: absolute;
+  bottom: 0;
+  right: -6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+.marca-cero {
+  right: auto;
+  left: -4px;
+}
+
+/* ---------- Apariciones suaves ---------- */
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+.aparecer {
+  animation: aparecer 0.55s ease both;
+}
+
+@keyframes latido {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+.punto-vivo {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 12px #22d3ee;
+  animation: latido 1s infinite;
+}
+
+/* ---------- Tarjetas de resultado ---------- */
+.stat {
+  border-radius: 20px;
+  padding: 22px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.stat-espera { background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(244, 63, 94, 0.12)); }
+.stat-sistema { background: linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(139, 92, 246, 0.14)); }
+.numero-grande {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+}
