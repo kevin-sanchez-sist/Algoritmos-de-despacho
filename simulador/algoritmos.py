@@ -143,8 +143,8 @@ def srtf(procesos):
 
 def mlq(procesos, quantum=2):
     """Multilevel Queue (MLQ): 3 niveles de colas.
-    Cola 1 (prioridad 1-2): Round Robin con quantum 2 — Mayor prioridad
-    Cola 2 (prioridad 3-4): Round Robin con quantum 4 — Prioridad media
+    Cola 1 (prioridad 1-2): Round Robin con quantum Q — Mayor prioridad
+    Cola 2 (prioridad 3-4): Round Robin con quantum 2*Q — Prioridad media
     Cola 3 (prioridad 5+):  FCFS — Menor prioridad
 
     Las colas se atienden en orden estricto: Cola 1 > Cola 2 > Cola 3.
@@ -189,9 +189,9 @@ def mlq(procesos, quantum=2):
         encolar_llegadas()
 
         if cola1:
-            # Cola 1: RR con quantum 2
+            # Cola 1: RR con quantum Q
             p = cola1.popleft()
-            uso = min(2, restante[p["nombre"]])
+            uso = min(quantum, restante[p["nombre"]])
 
             # Verificar si llega alguien de cola1 durante la ejecución
             gantt.append({"nombre": p["nombre"], "inicio": tiempo, "fin": tiempo + uso})
@@ -205,9 +205,9 @@ def mlq(procesos, quantum=2):
                 completados.add(p["nombre"])
 
         elif cola2:
-            # Cola 2: RR con quantum 4
+            # Cola 2: RR con quantum 2*Q
             p = cola2.popleft()
-            uso = min(4, restante[p["nombre"]])
+            uso = min(quantum * 2, restante[p["nombre"]])
 
             # Verificar si llega alguien de cola1 durante la ejecución (expropiación por cola superior)
             proxima_c1 = None

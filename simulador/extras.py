@@ -57,6 +57,14 @@ class ExtrasState(rx.State):
     gantt_progreso_transition_extra: str = "none"
 
     @rx.var
+    def quantum_extra_2(self) -> str:
+        """Calculates double the quantum for MLQ's second queue."""
+        try:
+            return str(int(self.quantum_extra) * 2)
+        except ValueError:
+            return "4"
+
+    @rx.var
     def gantt_altura_extra(self) -> str:
         if not self.procesos_extra:
             return "100px"
@@ -425,8 +433,8 @@ def info_algoritmo_extra():
                             size="2", color_scheme="gray", margin_bottom="2",
                         ),
                         rx.vstack(
-                            rx.text("• ", rx.text.strong("Cola 1", color_scheme="gray"), " (prioridad 1-2): Round Robin q=2.", size="2", color_scheme="gray"),
-                            rx.text("• ", rx.text.strong("Cola 2", color_scheme="gray"), " (prioridad 3-4): Round Robin q=4.", size="2", color_scheme="gray"),
+                            rx.text("• ", rx.text.strong("Cola 1", color_scheme="gray"), " (prioridad 1-2): Round Robin q=", ExtrasState.quantum_extra, ".", size="2", color_scheme="gray"),
+                            rx.text("• ", rx.text.strong("Cola 2", color_scheme="gray"), " (prioridad 3-4): Round Robin q=", ExtrasState.quantum_extra_2, ".", size="2", color_scheme="gray"),
                             rx.text("• ", rx.text.strong("Cola 3", color_scheme="gray"), " (prioridad 5+): FCFS.", size="2", color_scheme="gray"),
                             spacing="1",
                             align_items="start",
@@ -532,8 +540,8 @@ def seccion_procesos_extra():
                     rx.text("• En ", rx.text.strong("SRTF"), " se usa solo como referencia."),
                     rx.text("• En ", rx.text.strong("MLQ"), " determina la cola a la que pertenece el proceso:"),
                     rx.hstack(
-                        rx.badge("1-2 → Cola Alta (RR q=2)", color_scheme="violet"),
-                        rx.badge("3-4 → Cola Media (RR q=4)", color_scheme="blue"),
+                        rx.badge("1-2 → Cola Alta (RR q=", ExtrasState.quantum_extra, ")", color_scheme="violet"),
+                        rx.badge("3-4 → Cola Media (RR q=", ExtrasState.quantum_extra_2, ")", color_scheme="blue"),
                         rx.badge("5+ → Cola Baja (FCFS)", color_scheme="cyan"),
                         spacing="2",
                         wrap="wrap",
@@ -980,8 +988,8 @@ def seccion_comparacion_extra():
                         rx.text(rx.text.strong("SRTF"), " suele dar el menor tiempo de espera promedio al ser expropiativo."),
                         rx.text(rx.text.strong("MLQ"), " asigna los procesos a colas fijas según su prioridad:"),
                         rx.hstack(
-                            rx.badge("Cola 1: Prioridad 1-2 (RR q=2)", color_scheme="violet"),
-                            rx.badge("Cola 2: Prioridad 3-4 (RR q=4)", color_scheme="blue"),
+                            rx.badge("Cola 1: Prioridad 1-2 (RR q=", ExtrasState.quantum_extra, ")", color_scheme="violet"),
+                            rx.badge("Cola 2: Prioridad 3-4 (RR q=", ExtrasState.quantum_extra_2, ")", color_scheme="blue"),
                             rx.badge("Cola 3: Prioridad 5+ (FCFS)", color_scheme="cyan"),
                             wrap="wrap",
                             spacing="2",
