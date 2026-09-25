@@ -153,3 +153,26 @@
   z-index: 0;
   pointer-events: none;
 }
+
+/* ---------- Comparación de algoritmos ---------- */
+.fila-comp {
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+.fila-comp.ganadora {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: linear-gradient(90deg, rgba(250, 204, 21, 0.1), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.12);
+}
+
+@keyframes crecer-barra {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.barra-comp {
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: crecer-barra 1s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}

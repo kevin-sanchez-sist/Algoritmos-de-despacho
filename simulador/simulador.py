@@ -82,6 +82,13 @@ class State(rx.State):
     terminado: bool = False
     error: str = ""
 
+    # Comparación de los 4 algoritmos
+    comparacion: list[dict[str, str]] = []
+    mejor_espera: str = ""
+    mejor_espera_valor: str = ""
+    mejor_sistema: str = ""
+    mejor_sistema_valor: str = ""
+
     # ---------- Edición de la tabla ----------
     @rx.event
     def elegir_algoritmo(self, nombre: str):
@@ -92,6 +99,7 @@ class State(rx.State):
     @rx.event
     def set_quantum(self, valor: str):
         self.quantum = valor
+        self.comparacion = []
 
     @rx.event
     def set_velocidad(self, valor: str | list[str]):
@@ -102,12 +110,14 @@ class State(rx.State):
         procesos = [dict(p) for p in self.procesos]
         procesos[i][campo] = valor
         self.procesos = procesos
+        self.comparacion = []
 
     @rx.event
     def agregar(self):
         if len(self.procesos) < MAX_PROCESOS:
             n = len(self.procesos) + 1
             self.procesos = self.procesos + [crear_proceso(n, n - 1, 3, n)]
+            self.comparacion = []
 
     @rx.event
     def eliminar(self, i: int):
@@ -117,6 +127,7 @@ class State(rx.State):
                 crear_proceso(n, p["llegada"], p["rafaga"], p["prioridad"])
                 for n, p in enumerate(restantes, start=1)
             ]
+            self.comparacion = []
 
     @rx.event
     def aleatorio(self):
@@ -126,6 +137,7 @@ class State(rx.State):
             for n in range(1, cantidad + 1)
         ]
         self._limpiar()
+        self.comparacion = []
 
     def _limpiar(self):
         self.gantt_segmentos = []
@@ -161,6 +173,44 @@ class State(rx.State):
         if quantum < 1:
             raise ValueError("El quantum debe ser un número entero ≥ 1.")
         return datos, quantum
+
+    @rx.event
+    def comparar(self):
+        """Corre los 4 algoritmos con la tabla actual y marca el más óptimo."""
+        if self.animando:
+            return
+        try:
+            datos, quantum = self._leer_procesos()
+        except ValueError as e:
+            self.error = str(e)
+            return
+        self.error = ""
+
+        resultados = algoritmos.comparar(datos, quantum)
+        mejores_espera = algoritmos.mejores(resultados, "espera")
+        mejores_sistema = algoritmos.mejores(resultados, "sistema")
+        # El más largo ocupa el 100% de la barra; los demás, en proporción
+        max_espera = max(r["espera"] for r in resultados) or 1
+        max_sistema = max(r["sistema"] for r in resultados) or 1
+
+        self.comparacion = [
+            {
+                "algoritmo": r["algoritmo"],
+                "espera": f"{r['espera']:.2f}",
+                "sistema": f"{r['sistema']:.2f}",
+                "ancho_espera": f"{r['espera'] / max_espera * 100:.1f}%",
+                "ancho_sistema": f"{r['sistema'] / max_sistema * 100:.1f}%",
+                "gana_espera": "si" if r["algoritmo"] in mejores_espera else "",
+                "gana_sistema": "si" if r["algoritmo"] in mejores_sistema else "",
+                "retraso": f"{i * 0.12}s",
+            }
+            for i, r in enumerate(resultados)
+        ]
+        self.mejor_espera = " y ".join(mejores_espera)
+        self.mejor_sistema = " y ".join(mejores_sistema)
+        self.mejor_espera_valor = f"{min(r['espera'] for r in resultados):.2f}"
+        self.mejor_sistema_valor = f"{min(r['sistema'] for r in resultados):.2f}"
+        return rx.scroll_to("comparacion")
 
     def _reconstruir_segmentos(self, filas_dict, nombres_procesos, total):
         """Reconstruct flat segment list from filas_dict for the UI."""
@@ -435,6 +485,14 @@ def seccion_procesos():
                 ),
                 rx.spacer(),
                 rx.button(
+                    rx.icon("trophy", size=18),
+                    "Comparar los 4",
+                    on_click=State.comparar,
+                    disabled=State.animando,
+                    size="3",
+                    variant="outline",
+                ),
+                rx.button(
                     rx.icon("play", size=18),
                     rx.cond(State.animando, "Simulando...", "Simular"),
                     on_click=State.simular,
@@ -645,6 +703,7 @@ def seccion_gantt():
             spacing="4",
         ),
         class_name="vidrio aparecer",
+        id="gantt",
     )
 
 
@@ -729,6 +788,117 @@ def seccion_resultados():
                 spacing="5",
             ),
             class_name="vidrio aparecer",
+        ),
+    )
+
+
+# =====================================================================
+#  COMPARACIÓN DE LOS 4 ALGORITMOS
+# =====================================================================
+def tarjeta_ganador(titulo, nombre, valor, icono, clase):
+    return rx.vstack(
+        rx.hstack(rx.icon(icono, size=20), rx.text(titulo, weight="medium", size="3"), align="center"),
+        rx.hstack(
+            rx.icon("trophy", size=30, color="#facc15"),
+            rx.text(nombre, class_name="numero-grande"),
+            align="center",
+        ),
+        rx.text("Promedio: ", rx.text.strong(valor), " u. de tiempo", size="2", color_scheme="gray"),
+        spacing="3",
+        class_name="stat aparecer " + clase,
+    )
+
+
+def barra_comparacion(etiqueta, valor, ancho, color, gana):
+    return rx.vstack(
+        rx.hstack(
+            rx.text(etiqueta, size="1", color_scheme="gray"),
+            rx.spacer(),
+            rx.text(valor, weight="bold", size="2", font_family="JetBrains Mono",
+                    color=rx.cond(gana == "si", "#facc15", "white")),
+            width="100%",
+        ),
+        rx.box(
+            rx.box(class_name="barra-comp", width=ancho, height="100%", background=color),
+            width="100%",
+            height="10px",
+            border_radius="999px",
+            background="rgba(255,255,255,0.06)",
+            overflow="hidden",
+        ),
+        spacing="1",
+        width="100%",
+    )
+
+
+def fila_comparacion(i, a):
+    c = State.comparacion[i]
+    gana_alguno = (c["gana_espera"] == "si") | (c["gana_sistema"] == "si")
+    return rx.grid(
+        rx.hstack(
+            rx.center(rx.icon(a["icono"], size=18), class_name="icono-algo", width="36px", height="36px"),
+            rx.vstack(
+                rx.text(a["nombre"], weight="bold", size="3"),
+                rx.cond(gana_alguno, rx.badge(rx.icon("trophy", size=12), "Más óptimo",
+                                              color_scheme="yellow", radius="full")),
+                spacing="1",
+            ),
+            align="center",
+        ),
+        barra_comparacion("Tiempo de espera", c["espera"], c["ancho_espera"],
+                          "linear-gradient(90deg, #f59e0b, #f43f5e)", c["gana_espera"]),
+        barra_comparacion("Tiempo de sistema", c["sistema"], c["ancho_sistema"],
+                          "linear-gradient(90deg, #06b6d4, #8b5cf6)", c["gana_sistema"]),
+        rx.button(
+            rx.icon("play", size=14), "Ver Gantt",
+            on_click=[State.elegir_algoritmo(a["nombre"]), State.simular, rx.scroll_to("gantt")],
+            variant="soft", size="2", disabled=State.animando,
+        ),
+        columns=rx.breakpoints(initial="1", md="170px 1fr 1fr auto"),
+        spacing="5",
+        align="center",
+        width="100%",
+        class_name=rx.cond(gana_alguno, "fila-comp ganadora aparecer", "fila-comp aparecer"),
+        style={"animation_delay": c["retraso"]},
+    )
+
+
+def seccion_comparacion():
+    return rx.cond(
+        State.comparacion.length() > 0,
+        rx.box(
+            rx.vstack(
+                titulo_seccion("trophy", "Comparación de algoritmos", "5"),
+                rx.grid(
+                    tarjeta_ganador("Mejor en tiempo de espera", State.mejor_espera,
+                                    State.mejor_espera_valor, "hourglass", "stat-espera"),
+                    tarjeta_ganador("Mejor en tiempo de sistema", State.mejor_sistema,
+                                    State.mejor_sistema_valor, "clock", "stat-sistema"),
+                    columns=rx.breakpoints(initial="1", sm="2"),
+                    spacing="4",
+                    width="100%",
+                ),
+                rx.vstack(
+                    *[fila_comparacion(i, a) for i, a in enumerate(ALGORITMOS)],
+                    spacing="3",
+                    width="100%",
+                ),
+                rx.callout(
+                    rx.text(
+                        "Todos se calcularon con la misma tabla. Prioridad usa la columna de prioridad "
+                        "y Round Robin usa quantum = ", rx.text.strong(State.quantum),
+                        ". Como T. Sistema = T. Espera + Ráfaga, y las ráfagas son las mismas para todos, "
+                        "el mejor en espera siempre es también el mejor en sistema.",
+                    ),
+                    icon="info",
+                    color_scheme="gray",
+                    variant="surface",
+                    width="100%",
+                ),
+                spacing="5",
+            ),
+            class_name="vidrio aparecer",
+            id="comparacion",
         ),
     )
 
@@ -825,8 +995,13 @@ def index():
                 seccion_procesos(),
                 seccion_gantt(),
                 seccion_resultados(),
-                rx.text("Hecho con Python + Reflex", size="1", color_scheme="gray",
+                seccion_comparacion(),
+                rx.text("Desarrollado por: ", size="1", color_scheme="gray",
                         align_self="center"),
+                rx.text("Kevin Esteban Sánchez Torres ", size="1", color_scheme="gray",
+                                        align_self="center"),
+                rx.text("Yeison Orozco Vasco ", size="1", color_scheme="gray",
+                                        align_self="center"),
                 spacing="6",
                 padding_y="48px",
             ),
@@ -844,4 +1019,4 @@ app = rx.App(
         "/styles.css",
     ],
 )
-app.add_page(index, title="Simulador de Planificación de CPU")
+app.add_page(index, title="Simulador de algoritmos de despacho")

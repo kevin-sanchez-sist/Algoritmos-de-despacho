@@ -115,3 +115,19 @@ def calcular_tiempos(procesos, gantt):
     prom_espera = sum(f["espera"] for f in filas) / len(filas)
     prom_sistema = sum(f["sistema"] for f in filas) / len(filas)
     return filas, prom_espera, prom_sistema
+
+
+def comparar(procesos, quantum):
+    """Ejecuta los 4 algoritmos con los mismos procesos y devuelve sus promedios."""
+    resultados = []
+    for nombre in ["FIFO", "SJF", "Prioridad", "Round Robin"]:
+        gantt = ejecutar(nombre, procesos, quantum)
+        _, espera, sistema = calcular_tiempos(procesos, gantt)
+        resultados.append({"algoritmo": nombre, "espera": espera, "sistema": sistema})
+    return resultados
+
+
+def mejores(resultados, campo):
+    """Nombres de los algoritmos con el menor valor en `campo` (puede haber empate)."""
+    minimo = min(round(r[campo], 2) for r in resultados)
+    return [r["algoritmo"] for r in resultados if round(r[campo], 2) == minimo]
