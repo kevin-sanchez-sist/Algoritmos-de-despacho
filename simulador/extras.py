@@ -1,4 +1,4 @@
-"""Simulador de algoritmos de planificación de CPU hecho con Reflex."""
+"""Página de Algoritmos Extras: SRTF y MLQ."""
 
 import asyncio
 import random
@@ -11,14 +11,11 @@ COLORES = [
     "#8b5cf6", "#06b6d4", "#f43f5e", "#f59e0b", "#10b981",
     "#3b82f6", "#ec4899", "#84cc16", "#f97316", "#14b8a6",
 ]
-COLOR_OCIOSO = "repeating-linear-gradient(45deg, #2a2a3a 0 6px, #1c1c28 6px 12px)"
 MAX_PROCESOS = 10
 
-ALGORITMOS = [
-    {"nombre": "FIFO", "icono": "list-ordered", "desc": "El primero en llegar es el primero en ser atendido"},
-    {"nombre": "SJF", "icono": "zap", "desc": "Se atiende primero la ráfaga más corta"},
-    {"nombre": "Prioridad", "icono": "crown", "desc": "Menor número = mayor prioridad"},
-    {"nombre": "Round Robin", "icono": "refresh-cw", "desc": "Turnos rotativos con un quantum fijo"},
+ALGORITMOS_EXTRAS = [
+    {"nombre": "SRTF", "icono": "zap-off", "desc": "Expropiativo: ejecuta siempre el proceso con menor tiempo restante"},
+    {"nombre": "MLQ", "icono": "layers-3", "desc": "Colas multinivel: 3 colas con diferente prioridad y política"},
 ]
 
 # Factor de velocidad: cuántos segundos dura 1 unidad de tiempo
@@ -36,127 +33,118 @@ def crear_proceso(n, llegada, rafaga, prioridad):
 
 
 # =====================================================================
-#  ESTADO
+#  ESTADO PARA EXTRAS
 # =====================================================================
-class State(rx.State):
-    algoritmo: str = "FIFO"
-    quantum: str = "2"
-    velocidad: str = "Normal"
-    procesos: list[dict[str, str]] = [
-        crear_proceso(1, 0, 5, 3),
-        crear_proceso(2, 1, 3, 1),
-        crear_proceso(3, 2, 8, 4),
+class ExtrasState(rx.State):
+    algoritmo_extra: str = "SRTF"
+    quantum_extra: str = "2"
+    velocidad_extra: str = "Normal"
+    procesos_extra: list[dict[str, str]] = [
+        crear_proceso(1, 0, 5, 1),
+        crear_proceso(2, 1, 3, 3),
+        crear_proceso(3, 2, 8, 5),
         crear_proceso(4, 3, 6, 2),
-        crear_proceso(5, 4, 2, 5),
+        crear_proceso(5, 4, 2, 4),
     ]
 
-    # Gantt multi-fila: flat list of segments, each with process info
-    # Each segment: {nombre, color, left_pct, ancho_pct}
-    gantt_segmentos: list[dict[str, str]] = []
-    # Process row info: {nombre, color}
-    gantt_procesos: list[dict[str, str]] = []
-    # Progreso actual de la animación
-    gantt_progreso: float = 0.0
-    # Porcentaje de progreso precalculado como string CSS
-    gantt_progreso_pct: str = "0%"
-    # Marcas de tiempo (líneas verticales)
-    gantt_marcas: list[dict[str, str]] = []
-    # Máscara clip-path para revelar fluidamente
-    gantt_clip_path: str = "inset(0 100% 0 0)"
-    # Transición CSS dinámica para el progreso
-    gantt_progreso_transition: str = "none"
+    # Gantt multi-fila
+    gantt_segmentos_extra: list[dict[str, str]] = []
+    gantt_procesos_extra: list[dict[str, str]] = []
+    gantt_progreso_extra: float = 0.0
+    gantt_progreso_pct_extra: str = "0%"
+    gantt_marcas_extra: list[dict[str, str]] = []
+    gantt_clip_path_extra: str = "inset(0 100% 0 0)"
+    gantt_progreso_transition_extra: str = "none"
 
     @rx.var
-    def gantt_altura(self) -> str:
-        """Altura dinámica del contenedor de Gantt calculada en base a los procesos."""
-        if not self.procesos:
+    def gantt_altura_extra(self) -> str:
+        if not self.procesos_extra:
             return "100px"
-        return f"{len(self.procesos) * 44 + 8}px"
+        return f"{len(self.procesos_extra) * 44 + 8}px"
 
-    resultados: list[dict[str, str]] = []
-    prom_espera: str = ""
-    prom_sistema: str = ""
-    ejecutando: str = ""
-    tiempo_actual: str = "0"
-    animando: bool = False
-    terminado: bool = False
-    error: str = ""
+    resultados_extra: list[dict[str, str]] = []
+    prom_espera_extra: str = ""
+    prom_sistema_extra: str = ""
+    ejecutando_extra: str = ""
+    tiempo_actual_extra: str = "0"
+    animando_extra: bool = False
+    terminado_extra: bool = False
+    error_extra: str = ""
 
-    # Comparación de los 4 algoritmos
-    comparacion: list[dict[str, str]] = []
-    mejor_espera: str = ""
-    mejor_espera_valor: str = ""
-    mejor_sistema: str = ""
-    mejor_sistema_valor: str = ""
+    # Comparación de los 2 algoritmos extras
+    comparacion_extra: list[dict[str, str]] = []
+    mejor_espera_extra: str = ""
+    mejor_espera_valor_extra: str = ""
+    mejor_sistema_extra: str = ""
+    mejor_sistema_valor_extra: str = ""
 
     # ---------- Edición de la tabla ----------
     @rx.event
-    def elegir_algoritmo(self, nombre: str):
-        if not self.animando:
-            self.algoritmo = nombre
-            self._limpiar()
+    def elegir_algoritmo_extra(self, nombre: str):
+        if not self.animando_extra:
+            self.algoritmo_extra = nombre
+            self._limpiar_extra()
 
     @rx.event
-    def set_quantum(self, valor: str):
-        self.quantum = valor
-        self.comparacion = []
+    def set_quantum_extra(self, valor: str):
+        self.quantum_extra = valor
+        self.comparacion_extra = []
 
     @rx.event
-    def set_velocidad(self, valor: str | list[str]):
-        self.velocidad = str(valor)
+    def set_velocidad_extra(self, valor: str | list[str]):
+        self.velocidad_extra = str(valor)
 
     @rx.event
-    def editar(self, i: int, campo: str, valor: str):
-        procesos = [dict(p) for p in self.procesos]
+    def editar_extra(self, i: int, campo: str, valor: str):
+        procesos = [dict(p) for p in self.procesos_extra]
         procesos[i][campo] = valor
-        self.procesos = procesos
-        self.comparacion = []
+        self.procesos_extra = procesos
+        self.comparacion_extra = []
 
     @rx.event
-    def agregar(self):
-        if len(self.procesos) < MAX_PROCESOS:
-            n = len(self.procesos) + 1
-            self.procesos = self.procesos + [crear_proceso(n, n - 1, 3, n)]
-            self.comparacion = []
+    def agregar_extra(self):
+        if len(self.procesos_extra) < MAX_PROCESOS:
+            n = len(self.procesos_extra) + 1
+            self.procesos_extra = self.procesos_extra + [crear_proceso(n, n - 1, 3, n)]
+            self.comparacion_extra = []
 
     @rx.event
-    def eliminar(self, i: int):
-        if len(self.procesos) > 1:
-            restantes = [p for j, p in enumerate(self.procesos) if j != i]
-            self.procesos = [
+    def eliminar_extra(self, i: int):
+        if len(self.procesos_extra) > 1:
+            restantes = [p for j, p in enumerate(self.procesos_extra) if j != i]
+            self.procesos_extra = [
                 crear_proceso(n, p["llegada"], p["rafaga"], p["prioridad"])
                 for n, p in enumerate(restantes, start=1)
             ]
-            self.comparacion = []
+            self.comparacion_extra = []
 
     @rx.event
-    def aleatorio(self):
+    def aleatorio_extra(self):
         cantidad = random.randint(4, 6)
-        self.procesos = [
+        self.procesos_extra = [
             crear_proceso(n, random.randint(0, 8), random.randint(1, 8), random.randint(1, 5))
             for n in range(1, cantidad + 1)
         ]
-        self._limpiar()
-        self.comparacion = []
+        self._limpiar_extra()
+        self.comparacion_extra = []
 
-    def _limpiar(self):
-        self.gantt_segmentos = []
-        self.gantt_procesos = []
-        self.gantt_progreso = 0.0
-        self.gantt_progreso_pct = "0%"
-        self.gantt_marcas = []
-        self.gantt_clip_path = "inset(0 100% 0 0)"
-        self.gantt_progreso_transition = "none"
-        self.resultados = []
-        self.ejecutando = ""
-        self.tiempo_actual = "0"
-        self.terminado = False
-        self.error = ""
+    def _limpiar_extra(self):
+        self.gantt_segmentos_extra = []
+        self.gantt_procesos_extra = []
+        self.gantt_progreso_extra = 0.0
+        self.gantt_progreso_pct_extra = "0%"
+        self.gantt_marcas_extra = []
+        self.gantt_clip_path_extra = "inset(0 100% 0 0)"
+        self.gantt_progreso_transition_extra = "none"
+        self.resultados_extra = []
+        self.ejecutando_extra = ""
+        self.tiempo_actual_extra = "0"
+        self.terminado_extra = False
+        self.error_extra = ""
 
-    def _leer_procesos(self):
-        """Convierte la tabla (texto) a números y valida."""
+    def _leer_procesos_extra(self):
         datos = []
-        for p in self.procesos:
+        for p in self.procesos_extra:
             try:
                 llegada, rafaga = int(p["llegada"]), int(p["rafaga"])
                 prioridad = int(p["prioridad"] or 0)
@@ -167,7 +155,7 @@ class State(rx.State):
             datos.append({**p, "llegada": llegada, "rafaga": rafaga, "prioridad": prioridad})
 
         try:
-            quantum = int(self.quantum)
+            quantum = int(self.quantum_extra)
         except ValueError:
             quantum = 0
         if quantum < 1:
@@ -175,25 +163,23 @@ class State(rx.State):
         return datos, quantum
 
     @rx.event
-    def comparar(self):
-        """Corre los 4 algoritmos con la tabla actual y marca el más óptimo."""
-        if self.animando:
+    def comparar_extras(self):
+        if self.animando_extra:
             return
         try:
-            datos, quantum = self._leer_procesos()
+            datos, quantum = self._leer_procesos_extra()
         except ValueError as e:
-            self.error = str(e)
+            self.error_extra = str(e)
             return
-        self.error = ""
+        self.error_extra = ""
 
-        resultados = algoritmos.comparar(datos, quantum)
+        resultados = algoritmos.comparar_extras(datos, quantum)
         mejores_espera = algoritmos.mejores(resultados, "espera")
         mejores_sistema = algoritmos.mejores(resultados, "sistema")
-        # El más largo ocupa el 100% de la barra; los demás, en proporción
         max_espera = max(r["espera"] for r in resultados) or 1
         max_sistema = max(r["sistema"] for r in resultados) or 1
 
-        self.comparacion = [
+        self.comparacion_extra = [
             {
                 "algoritmo": r["algoritmo"],
                 "espera": f"{r['espera']:.2f}",
@@ -206,17 +192,15 @@ class State(rx.State):
             }
             for i, r in enumerate(resultados)
         ]
-        self.mejor_espera = " y ".join(mejores_espera)
-        self.mejor_sistema = " y ".join(mejores_sistema)
-        self.mejor_espera_valor = f"{min(r['espera'] for r in resultados):.2f}"
-        self.mejor_sistema_valor = f"{min(r['sistema'] for r in resultados):.2f}"
-        return rx.scroll_to("comparacion")
+        self.mejor_espera_extra = " y ".join(mejores_espera)
+        self.mejor_sistema_extra = " y ".join(mejores_sistema)
+        self.mejor_espera_valor_extra = f"{min(r['espera'] for r in resultados):.2f}"
+        self.mejor_sistema_valor_extra = f"{min(r['sistema'] for r in resultados):.2f}"
+        return rx.scroll_to("comparacion-extra")
 
-    def _reconstruir_segmentos(self, filas_dict, nombres_procesos, total):
-        """Reconstruct flat segment list from filas_dict for the UI."""
+    def _reconstruir_segmentos_extra(self, filas_dict, nombres_procesos, total):
         all_segs = []
         for proc_idx, nombre in enumerate(nombres_procesos):
-            # Each row is 36px height + 8px gap = 44px stride
             top_px = f"{proc_idx * 44}px"
             for seg in filas_dict[nombre]["segmentos"]:
                 all_segs.append({
@@ -226,62 +210,57 @@ class State(rx.State):
                     "ancho_pct": seg["ancho_pct"],
                     "fila_top": top_px,
                 })
-        self.gantt_segmentos = all_segs
+        self.gantt_segmentos_extra = all_segs
 
-    # ---------- Simulación animada multi-fila ----------
+    # ---------- Simulación animada ----------
     @rx.event(background=True)
-    async def simular(self):
+    async def simular_extra(self):
         async with self:
-            if self.animando:
+            if self.animando_extra:
                 return
-            self._limpiar()
+            self._limpiar_extra()
             try:
-                datos, quantum = self._leer_procesos()
+                datos, quantum = self._leer_procesos_extra()
             except ValueError as e:
-                self.error = str(e)
+                self.error_extra = str(e)
                 return
-            self.animando = True
-            algoritmo_nombre = self.algoritmo
-            velocidad_factor = VELOCIDADES[self.velocidad]
+            self.animando_extra = True
+            algoritmo_nombre = self.algoritmo_extra
+            velocidad_factor = VELOCIDADES[self.velocidad_extra]
 
         bloques = algoritmos.ejecutar(algoritmo_nombre, datos, quantum)
         colores = {p["nombre"]: p["color"] for p in datos}
         total = bloques[-1]["fin"] if bloques else 1
 
-        # Build process rows
         nombres_procesos = [p["nombre"] for p in datos]
         proc_rows = [{"nombre": p["nombre"], "color": p["color"]} for p in datos]
 
         async with self:
-            self.gantt_procesos = proc_rows
+            self.gantt_procesos_extra = proc_rows
 
-        # Track segments per process
         filas_dict = {}
         for nombre in nombres_procesos:
             filas_dict[nombre] = {"segmentos": []}
 
-        # Prepare result data
         filas_resultado, prom_espera, prom_sistema = algoritmos.calcular_tiempos(datos, bloques)
 
-        # 1. Pre-calculate all segments and marks
         marcas = [{"tiempo": "0", "left_pct": "0%"}]
         tiempos_vistos = {"0"}
-        
+
         for b in bloques:
             nombre = b["nombre"]
             inicio = b["inicio"]
             fin = b["fin"]
             duracion = fin - inicio
-            
-            # Add time mark if not present
+
             t_str = str(fin)
             if t_str not in tiempos_vistos:
                 marcas.append({"tiempo": t_str, "left_pct": f"{(fin / total) * 100:.2f}%"})
                 tiempos_vistos.add(t_str)
-                
+
             if nombre == "Ocioso":
                 continue
-            
+
             color = colores.get(nombre, "#52525b")
             filas_dict[nombre]["segmentos"].append({
                 "inicio": str(inicio),
@@ -289,28 +268,24 @@ class State(rx.State):
                 "ancho_pct": f"{(duracion / total) * 100:.2f}%",
                 "left_pct": f"{(inicio / total) * 100:.2f}%",
             })
-            
-        # Reconstruct exactly once and yield to render the fully constructed (but clipped) DOM
+
         async with self:
-            self._reconstruir_segmentos(filas_dict, nombres_procesos, total)
-            self.gantt_marcas = marcas
-            self.gantt_clip_path = "inset(0 100% 0 0)"
-            self.gantt_progreso_pct = "0%"
-            self.gantt_progreso_transition = "none"
-            self.tiempo_actual = "0"
-            
-        # Pequeña pausa para que Reflex renderice el DOM inicial antes de empezar las transiciones CSS
+            self._reconstruir_segmentos_extra(filas_dict, nombres_procesos, total)
+            self.gantt_marcas_extra = marcas
+            self.gantt_clip_path_extra = "inset(0 100% 0 0)"
+            self.gantt_progreso_pct_extra = "0%"
+            self.gantt_progreso_transition_extra = "none"
+            self.tiempo_actual_extra = "0"
+
         await asyncio.sleep(0.1)
 
-        # 2. Disparar la animación visual en un solo movimiento fluido de CSS
         tiempo_total_real = total * velocidad_factor
         async with self:
             if total > 0:
-                self.gantt_progreso_pct = "100%"
-                self.gantt_clip_path = "inset(0 0% 0 0)"
-                self.gantt_progreso_transition = f"clip-path {tiempo_total_real}s linear, left {tiempo_total_real}s linear, width {tiempo_total_real}s linear"
+                self.gantt_progreso_pct_extra = "100%"
+                self.gantt_clip_path_extra = "inset(0 0% 0 0)"
+                self.gantt_progreso_transition_extra = f"clip-path {tiempo_total_real}s linear, left {tiempo_total_real}s linear, width {tiempo_total_real}s linear"
 
-        # 3. Bucle ligero solo para actualizar los textos ("Ejecutando Px" y tiempo) en sincronía
         for b in bloques:
             nombre = b["nombre"]
             inicio = b["inicio"]
@@ -319,17 +294,16 @@ class State(rx.State):
             duracion_real = duracion * velocidad_factor
 
             async with self:
-                self.ejecutando = nombre
-                self.tiempo_actual = str(inicio)
+                self.ejecutando_extra = nombre
+                self.tiempo_actual_extra = str(inicio)
 
-            # Wait exactly the real duration of this block
             await asyncio.sleep(duracion_real)
-            
+
             async with self:
-                self.tiempo_actual = str(fin)
+                self.tiempo_actual_extra = str(fin)
 
         async with self:
-            self.resultados = [
+            self.resultados_extra = [
                 {
                     "nombre": f["nombre"],
                     "color": f["color"],
@@ -342,41 +316,38 @@ class State(rx.State):
                 }
                 for i, f in enumerate(filas_resultado)
             ]
-            self.prom_espera = f"{prom_espera:.2f}"
-            self.prom_sistema = f"{prom_sistema:.2f}"
-            self.animando = False
-            self.terminado = True
+            self.prom_espera_extra = f"{prom_espera:.2f}"
+            self.prom_sistema_extra = f"{prom_sistema:.2f}"
+            self.animando_extra = False
+            self.terminado_extra = True
 
 
 # =====================================================================
 #  COMPONENTES
 # =====================================================================
-def encabezado():
+def encabezado_extras():
     return rx.vstack(
         rx.hstack(
-            rx.spacer(),
-            rx.badge(rx.icon("cpu", size=14), "Sistemas Operativos", variant="soft", radius="full", size="2"),
-            rx.spacer(),
             rx.link(
-                rx.box(
-                    rx.hstack(
-                        rx.icon("plus", size=18, color="white"),
-                        rx.text("Extras", weight="bold", size="2", color="white",
-                                display=rx.breakpoints(initial="none", sm="block")),
-                        align="center",
-                        spacing="1",
-                    ),
-                    class_name="boton-extras",
+                rx.button(
+                    rx.icon("arrow-left", size=18),
+                    "Volver al simulador",
+                    variant="soft",
+                    color_scheme="gray",
+                    size="3",
                 ),
-                href="/extras",
+                href="/",
                 underline="none",
             ),
+            rx.spacer(),
+            rx.badge(rx.icon("flask-conical", size=14), "Algoritmos Extras", variant="soft",
+                     radius="full", size="2", color_scheme="cyan"),
             width="100%",
             align="center",
         ),
-        rx.heading("Simulador de Planificación de CPU", size="9", weight="bold",
-                   class_name="titulo-gradiente", text_align="center"),
-        rx.text("Configura tus procesos, elige un algoritmo y mira cómo se arma el diagrama de Gantt paso a paso.",
+        rx.heading("Algoritmos Avanzados de Despacho", size="9", weight="bold",
+                   class_name="titulo-gradiente-extra", text_align="center"),
+        rx.text("Explora SRTF y MLQ: dos algoritmos adicionales para la planificación de procesos en CPU.",
                 color_scheme="gray", size="4", text_align="center", max_width="640px"),
         align="center",
         spacing="3",
@@ -384,37 +355,117 @@ def encabezado():
     )
 
 
-def titulo_seccion(icono, texto, numero):
+def titulo_seccion_extra(icono, texto, numero):
     return rx.hstack(
         rx.center(rx.text(numero, weight="bold", size="2"), width="28px", height="28px",
-                  border_radius="full", background="rgba(139,92,246,0.25)", color="#c4b5fd"),
-        rx.icon(icono, size=20, color="#a78bfa"),
+                  border_radius="full", background="rgba(6,182,212,0.25)", color="#67e8f9"),
+        rx.icon(icono, size=20, color="#22d3ee"),
         rx.heading(texto, size="5"),
         align="center",
         spacing="2",
     )
 
 
-def tarjeta_algoritmo(a):
+def info_algoritmo_extra():
+    """Sección con la explicación de cada algoritmo extra."""
     return rx.box(
         rx.vstack(
-            rx.center(rx.icon(a["icono"], size=22), class_name="icono-algo"),
+            titulo_seccion_extra("book-open", "¿Qué son estos algoritmos?", "ℹ"),
+            rx.grid(
+                # SRTF Card
+                rx.box(
+                    rx.vstack(
+                        rx.hstack(
+                            rx.center(rx.icon("zap-off", size=22, color="white"),
+                                      width="42px", height="42px", border_radius="12px",
+                                      background="linear-gradient(135deg, #f59e0b, #f43f5e)"),
+                            rx.vstack(
+                                rx.text("SRTF", weight="bold", size="4"),
+                                rx.text("Shortest Remaining Time First", size="2", color_scheme="gray"),
+                                spacing="0",
+                            ),
+                            align="center",
+                        ),
+                        rx.separator(size="4"),
+                        rx.text(
+                            "Versión expropiativa de SJF. Cada vez que un nuevo proceso llega, "
+                            "se compara su ráfaga con el tiempo restante del proceso en ejecución. "
+                            "Si el nuevo tiene menos tiempo restante, expulsa al actual.",
+                            size="2", color_scheme="gray", line_height="1.6",
+                        ),
+                        rx.hstack(
+                            rx.badge("Expropiativo", color_scheme="red", radius="full"),
+                            rx.badge("Óptimo en espera", color_scheme="green", radius="full"),
+                            wrap="wrap",
+                        ),
+                        spacing="3",
+                    ),
+                    class_name="tarjeta-info-extra",
+                ),
+                # MLQ Card
+                rx.box(
+                    rx.vstack(
+                        rx.hstack(
+                            rx.center(rx.icon("layers-3", size=22, color="white"),
+                                      width="42px", height="42px", border_radius="12px",
+                                      background="linear-gradient(135deg, #06b6d4, #8b5cf6)"),
+                            rx.vstack(
+                                rx.text("MLQ", weight="bold", size="4"),
+                                rx.text("Multilevel Queue", size="2", color_scheme="gray"),
+                                spacing="0",
+                            ),
+                            align="center",
+                        ),
+                        rx.separator(size="4"),
+                        rx.text(
+                            "Divide los procesos en 3 colas según su prioridad. "
+                            "Cola 1 (prioridad 1-2): Round Robin q=2. "
+                            "Cola 2 (prioridad 3-4): Round Robin q=4. "
+                            "Cola 3 (prioridad 5+): FCFS. "
+                            "Las colas superiores siempre tienen preferencia.",
+                            size="2", color_scheme="gray", line_height="1.6",
+                        ),
+                        rx.hstack(
+                            rx.badge("Multinivel", color_scheme="violet", radius="full"),
+                            rx.badge("Usa prioridad", color_scheme="cyan", radius="full"),
+                            rx.badge("Expropiativo entre colas", color_scheme="orange", radius="full"),
+                            wrap="wrap",
+                        ),
+                        spacing="3",
+                    ),
+                    class_name="tarjeta-info-extra",
+                ),
+                columns=rx.breakpoints(initial="1", md="2"),
+                spacing="4",
+                width="100%",
+            ),
+            spacing="4",
+        ),
+        class_name="vidrio aparecer",
+    )
+
+
+def tarjeta_algoritmo_extra(a):
+    return rx.box(
+        rx.vstack(
+            rx.center(rx.icon(a["icono"], size=22), class_name="icono-algo-extra"),
             rx.text(a["nombre"], weight="bold", size="4"),
             rx.text(a["desc"], size="2", color_scheme="gray"),
             spacing="2",
         ),
-        on_click=State.elegir_algoritmo(a["nombre"]),
-        class_name=rx.cond(State.algoritmo == a["nombre"], "tarjeta-algo activa", "tarjeta-algo"),
+        on_click=ExtrasState.elegir_algoritmo_extra(a["nombre"]),
+        class_name=rx.cond(ExtrasState.algoritmo_extra == a["nombre"],
+                          "tarjeta-algo-extra activa-extra", "tarjeta-algo-extra"),
     )
 
 
-def seccion_algoritmo():
+def seccion_algoritmo_extra():
     return rx.box(
         rx.vstack(
-            titulo_seccion("layers", "Elige el algoritmo", "1"),
+            titulo_seccion_extra("layers", "Elige el algoritmo", "1"),
             rx.grid(
-                *[tarjeta_algoritmo(a) for a in ALGORITMOS],
-                columns=rx.breakpoints(initial="2", md="4"),
+                *[tarjeta_algoritmo_extra(a) for a in ALGORITMOS_EXTRAS],
+                columns=rx.breakpoints(initial="1", md="2"),
                 spacing="3",
                 width="100%",
             ),
@@ -424,47 +475,57 @@ def seccion_algoritmo():
     )
 
 
-def punto_color(color):
+def punto_color_extra(color):
     return rx.box(width="12px", height="12px", border_radius="50%", background=color,
                   flex_shrink="0")
 
 
-def campo_numero(valor, al_cambiar):
+def campo_numero_extra(valor, al_cambiar):
     return rx.input(value=valor, on_change=al_cambiar, type="number", min=0,
                     variant="soft", width="90px", size="2")
 
 
-def fila_proceso(p, i):
+def fila_proceso_extra(p, i):
     return rx.table.row(
-        rx.table.cell(rx.hstack(punto_color(p["color"]), rx.text(p["nombre"], weight="bold"), align="center")),
-        rx.table.cell(campo_numero(p["llegada"], lambda v: State.editar(i, "llegada", v))),
-        rx.table.cell(campo_numero(p["rafaga"], lambda v: State.editar(i, "rafaga", v))),
-        rx.cond(
-            State.algoritmo == "Prioridad",
-            rx.table.cell(campo_numero(p["prioridad"], lambda v: State.editar(i, "prioridad", v))),
-        ),
+        rx.table.cell(rx.hstack(punto_color_extra(p["color"]), rx.text(p["nombre"], weight="bold"), align="center")),
+        rx.table.cell(campo_numero_extra(p["llegada"], lambda v: ExtrasState.editar_extra(i, "llegada", v))),
+        rx.table.cell(campo_numero_extra(p["rafaga"], lambda v: ExtrasState.editar_extra(i, "rafaga", v))),
+        rx.table.cell(campo_numero_extra(p["prioridad"], lambda v: ExtrasState.editar_extra(i, "prioridad", v))),
         rx.table.cell(
-            rx.icon_button(rx.icon("trash-2", size=16), on_click=State.eliminar(i),
-                           variant="ghost", color_scheme="red", disabled=State.animando),
+            rx.icon_button(rx.icon("trash-2", size=16), on_click=ExtrasState.eliminar_extra(i),
+                           variant="ghost", color_scheme="red", disabled=ExtrasState.animando_extra),
         ),
         align="center",
         class_name="aparecer",
     )
 
 
-def seccion_procesos():
+def seccion_procesos_extra():
     return rx.box(
         rx.vstack(
             rx.hstack(
-                titulo_seccion("table", "Tabla de procesos", "2"),
+                titulo_seccion_extra("table", "Tabla de procesos", "2"),
                 rx.spacer(),
-                rx.button(rx.icon("shuffle", size=16), "Aleatorio", on_click=State.aleatorio,
-                          variant="soft", color_scheme="gray", disabled=State.animando),
-                rx.button(rx.icon("plus", size=16), "Agregar", on_click=State.agregar,
-                          variant="soft", disabled=State.animando),
+                rx.button(rx.icon("shuffle", size=16), "Aleatorio", on_click=ExtrasState.aleatorio_extra,
+                          variant="soft", color_scheme="gray", disabled=ExtrasState.animando_extra),
+                rx.button(rx.icon("plus", size=16), "Agregar", on_click=ExtrasState.agregar_extra,
+                          variant="soft", disabled=ExtrasState.animando_extra),
                 width="100%",
                 align="center",
                 wrap="wrap",
+            ),
+            rx.callout(
+                rx.text(
+                    "La columna ",
+                    rx.text.strong("Prioridad"),
+                    " es obligatoria para ambos algoritmos. En SRTF se usa solo como referencia. "
+                    "En MLQ determina la cola a la que pertenece el proceso: "
+                    "1-2 → Cola Alta (RR q=2), 3-4 → Cola Media (RR q=4), 5+ → Cola Baja (FCFS).",
+                ),
+                icon="info",
+                color_scheme="cyan",
+                variant="surface",
+                width="100%",
             ),
             rx.table.root(
                 rx.table.header(
@@ -472,53 +533,53 @@ def seccion_procesos():
                         rx.table.column_header_cell("Proceso"),
                         rx.table.column_header_cell("Llegada"),
                         rx.table.column_header_cell("Ráfaga CPU"),
-                        rx.cond(State.algoritmo == "Prioridad", rx.table.column_header_cell("Prioridad")),
+                        rx.table.column_header_cell("Prioridad"),
                         rx.table.column_header_cell(""),
                     )
                 ),
-                rx.table.body(rx.foreach(State.procesos, fila_proceso)),
+                rx.table.body(rx.foreach(ExtrasState.procesos_extra, fila_proceso_extra)),
                 variant="ghost",
                 width="100%",
             ),
-            # Controles de la simulación
+            # Controles de simulación
             rx.hstack(
                 rx.cond(
-                    State.algoritmo == "Round Robin",
+                    ExtrasState.algoritmo_extra == "MLQ",
                     rx.hstack(
                         rx.icon("timer", size=18, color="#22d3ee"),
-                        rx.text("Quantum", weight="medium"),
-                        rx.input(value=State.quantum, on_change=State.set_quantum, type="number",
-                                 min=1, width="80px", variant="soft"),
+                        rx.text("Quantum base", weight="medium"),
+                        rx.input(value=ExtrasState.quantum_extra, on_change=ExtrasState.set_quantum_extra,
+                                 type="number", min=1, width="80px", variant="soft"),
                         align="center",
                         class_name="aparecer",
                     ),
                 ),
                 rx.hstack(
-                    rx.icon("gauge", size=18, color="#a78bfa"),
+                    rx.icon("gauge", size=18, color="#22d3ee"),
                     rx.text("Velocidad", weight="medium"),
                     rx.segmented_control.root(
                         *[rx.segmented_control.item(v, value=v) for v in VELOCIDADES],
-                        value=State.velocidad,
-                        on_change=State.set_velocidad,
+                        value=ExtrasState.velocidad_extra,
+                        on_change=ExtrasState.set_velocidad_extra,
                     ),
                     align="center",
                 ),
                 rx.spacer(),
                 rx.button(
                     rx.icon("trophy", size=18),
-                    "Comparar los 4",
-                    on_click=State.comparar,
-                    disabled=State.animando,
+                    "Comparar los 2",
+                    on_click=ExtrasState.comparar_extras,
+                    disabled=ExtrasState.animando_extra,
                     size="3",
                     variant="outline",
                 ),
                 rx.button(
                     rx.icon("play", size=18),
-                    rx.cond(State.animando, "Simulando...", "Simular"),
-                    on_click=State.simular,
-                    loading=State.animando,
+                    rx.cond(ExtrasState.animando_extra, "Simulando...", "Simular"),
+                    on_click=ExtrasState.simular_extra,
+                    loading=ExtrasState.animando_extra,
                     size="3",
-                    class_name="boton-simular",
+                    class_name="boton-simular-extra",
                 ),
                 width="100%",
                 align="center",
@@ -526,8 +587,8 @@ def seccion_procesos():
                 wrap="wrap",
             ),
             rx.cond(
-                State.error != "",
-                rx.callout(State.error, icon="triangle-alert", color_scheme="red", width="100%"),
+                ExtrasState.error_extra != "",
+                rx.callout(ExtrasState.error_extra, icon="triangle-alert", color_scheme="red", width="100%"),
             ),
             spacing="4",
         ),
@@ -536,11 +597,9 @@ def seccion_procesos():
 
 
 # =====================================================================
-#  DIAGRAMA DE GANTT MULTI-FILA
+#  DIAGRAMA DE GANTT
 # =====================================================================
-
-def segmento_gantt(seg):
-    """A single segment positioned absolutely within its row."""
+def segmento_gantt_extra(seg):
     return rx.box(
         rx.center(
             rx.text(seg["nombre"], weight="bold", size="1", color="white"),
@@ -557,8 +616,7 @@ def segmento_gantt(seg):
     )
 
 
-def fila_proceso_gantt(proc):
-    """Label for a process row in the Gantt chart."""
+def fila_proceso_gantt_extra(proc):
     return rx.hstack(
         rx.box(
             width="10px", height="10px", border_radius="50%",
@@ -572,33 +630,32 @@ def fila_proceso_gantt(proc):
     )
 
 
-def estado_gantt():
+def estado_gantt_extra():
     return rx.cond(
-        State.animando,
+        ExtrasState.animando_extra,
         rx.hstack(
             rx.box(class_name="punto-vivo"),
-            rx.text("Ejecutando ", rx.text.strong(State.ejecutando), size="2"),
-            rx.badge("t = ", State.tiempo_actual, variant="surface", size="2"),
+            rx.text("Ejecutando ", rx.text.strong(ExtrasState.ejecutando_extra), size="2"),
+            rx.badge("t = ", ExtrasState.tiempo_actual_extra, variant="surface", size="2"),
             align="center",
         ),
         rx.cond(
-            State.terminado,
-            rx.badge(rx.icon("circle-check", size=14), "Completado en t = ", State.tiempo_actual,
+            ExtrasState.terminado_extra,
+            rx.badge(rx.icon("circle-check", size=14), "Completado en t = ", ExtrasState.tiempo_actual_extra,
                      color_scheme="green", size="2", radius="full"),
         ),
     )
 
 
-def leyenda_velocidad():
-    """Muestra la escala de tiempo real."""
+def leyenda_velocidad_extra():
     return rx.cond(
-        State.animando,
+        ExtrasState.animando_extra,
         rx.hstack(
-            rx.icon("clock", size=14, color="#a78bfa"),
+            rx.icon("clock", size=14, color="#22d3ee"),
             rx.text(
                 "1 u.t. = ",
-                rx.cond(State.velocidad == "Lenta", "1.0s",
-                        rx.cond(State.velocidad == "Normal", "0.5s", "0.2s")),
+                rx.cond(ExtrasState.velocidad_extra == "Lenta", "1.0s",
+                        rx.cond(ExtrasState.velocidad_extra == "Normal", "0.5s", "0.2s")),
                 " real",
                 size="1", color_scheme="gray",
             ),
@@ -608,62 +665,57 @@ def leyenda_velocidad():
     )
 
 
-def seccion_gantt():
+def seccion_gantt_extra():
     return rx.box(
         rx.vstack(
             rx.hstack(
-                titulo_seccion("chart-no-axes-gantt", "Diagrama de Gantt", "3"),
+                titulo_seccion_extra("chart-no-axes-gantt", "Diagrama de Gantt", "3"),
                 rx.spacer(),
-                leyenda_velocidad(),
-                estado_gantt(),
+                leyenda_velocidad_extra(),
+                estado_gantt_extra(),
                 width="100%",
                 align="center",
                 wrap="wrap",
                 gap="3",
             ),
             rx.cond(
-                State.gantt_procesos.length() > 0,
+                ExtrasState.gantt_procesos_extra.length() > 0,
                 rx.vstack(
                     rx.hstack(
-                        # Left column: process labels
                         rx.vstack(
-                            rx.foreach(State.gantt_procesos, fila_proceso_gantt),
+                            rx.foreach(ExtrasState.gantt_procesos_extra, fila_proceso_gantt_extra),
                             spacing="2",
                             min_width="70px",
                         ),
-                        # Right column: Gantt bars area
                         rx.box(
-                            # Marcas de tiempo (Líneas divisorias verticales)
-                            rx.foreach(State.gantt_marcas, lambda m: rx.box(
+                            rx.foreach(ExtrasState.gantt_marcas_extra, lambda m: rx.box(
                                 position="absolute",
                                 top="0", bottom="0", left=m["left_pct"],
                                 border_left="1px dashed rgba(255,255,255,0.15)",
                                 z_index="0",
                             )),
-                            # Container con clip-path mask para revelar los segmentos
                             rx.box(
-                                rx.foreach(State.gantt_segmentos, segmento_gantt),
+                                rx.foreach(ExtrasState.gantt_segmentos_extra, segmento_gantt_extra),
                                 position="absolute",
                                 inset="0",
-                                clip_path=State.gantt_clip_path,
-                                transition=State.gantt_progreso_transition,
+                                clip_path=ExtrasState.gantt_clip_path_extra,
+                                transition=ExtrasState.gantt_progreso_transition_extra,
                                 z_index="1",
                             ),
-                            # Progress line
                             rx.box(
                                 position="absolute",
-                                left=State.gantt_progreso_pct,
+                                left=ExtrasState.gantt_progreso_pct_extra,
                                 top="0",
                                 bottom="0",
                                 width="2px",
                                 background="#22d3ee",
                                 box_shadow="0 0 8px #22d3ee",
-                                transition=State.gantt_progreso_transition,
+                                transition=ExtrasState.gantt_progreso_transition_extra,
                                 z_index="10",
                             ),
                             position="relative",
                             width="100%",
-                            height=State.gantt_altura,
+                            height=ExtrasState.gantt_altura_extra,
                             background="rgba(255,255,255,0.02)",
                             border_radius="12px",
                             border="1px solid rgba(255,255,255,0.06)",
@@ -674,20 +726,17 @@ def seccion_gantt():
                         align="start",
                         spacing="3",
                     ),
-                    # Time axis
                     rx.hstack(
                         rx.box(min_width="70px"),
                         rx.box(
-                            # Contenedor relativo para el eje de tiempo
                             rx.box(
                                 position="absolute",
                                 left="0", top="0", bottom="0",
-                                width=State.gantt_progreso_pct,
-                                background="linear-gradient(90deg, rgba(139,92,246,0.12), rgba(34,211,238,0.08))",
-                                transition=State.gantt_progreso_transition,
+                                width=ExtrasState.gantt_progreso_pct_extra,
+                                background="linear-gradient(90deg, rgba(6,182,212,0.12), rgba(139,92,246,0.08))",
+                                transition=ExtrasState.gantt_progreso_transition_extra,
                             ),
-                            # Números de las marcas
-                            rx.foreach(State.gantt_marcas, lambda m: rx.box(
+                            rx.foreach(ExtrasState.gantt_marcas_extra, lambda m: rx.box(
                                 rx.text(m["tiempo"], size="1", color="#a1a1aa", font_family="JetBrains Mono"),
                                 position="absolute",
                                 top="2px", left=m["left_pct"],
@@ -723,11 +772,14 @@ def seccion_gantt():
             spacing="4",
         ),
         class_name="vidrio aparecer",
-        id="gantt",
+        id="gantt-extra",
     )
 
 
-def tarjeta_promedio(titulo, valor, icono, clase, formula):
+# =====================================================================
+#  RESULTADOS
+# =====================================================================
+def tarjeta_promedio_extra(titulo, valor, icono, clase, formula):
     return rx.vstack(
         rx.hstack(rx.icon(icono, size=20), rx.text(titulo, weight="medium", size="3"), align="center"),
         rx.hstack(
@@ -741,7 +793,7 @@ def tarjeta_promedio(titulo, valor, icono, clase, formula):
     )
 
 
-def celda_calculo(resultado, operacion):
+def celda_calculo_extra(resultado, operacion):
     return rx.table.cell(
         rx.hstack(
             rx.text(operacion, size="1", color_scheme="gray", font_family="JetBrains Mono"),
@@ -752,26 +804,26 @@ def celda_calculo(resultado, operacion):
     )
 
 
-def fila_resultado(r):
+def fila_resultado_extra(r):
     return rx.table.row(
-        rx.table.cell(rx.hstack(punto_color(r["color"]), rx.text(r["nombre"], weight="bold"), align="center")),
+        rx.table.cell(rx.hstack(punto_color_extra(r["color"]), rx.text(r["nombre"], weight="bold"), align="center")),
         rx.table.cell(r["llegada"]),
         rx.table.cell(r["rafaga"]),
         rx.table.cell(r["fin"]),
-        celda_calculo(r["sistema"], r["fin"] + " − " + r["llegada"] + " ="),
-        celda_calculo(r["espera"], r["sistema"] + " − " + r["rafaga"] + " ="),
+        celda_calculo_extra(r["sistema"], r["fin"] + " − " + r["llegada"] + " ="),
+        celda_calculo_extra(r["espera"], r["sistema"] + " − " + r["rafaga"] + " ="),
         align="center",
         class_name="aparecer",
         style={"animation_delay": r["retraso"]},
     )
 
 
-def seccion_resultados():
+def seccion_resultados_extra():
     return rx.cond(
-        State.terminado,
+        ExtrasState.terminado_extra,
         rx.box(
             rx.vstack(
-                titulo_seccion("chart-column", "Resultados", "4"),
+                titulo_seccion_extra("chart-column", "Resultados", "4"),
                 rx.table.root(
                     rx.table.header(
                         rx.table.row(
@@ -784,12 +836,12 @@ def seccion_resultados():
                         )
                     ),
                     rx.table.body(
-                        rx.foreach(State.resultados, fila_resultado),
+                        rx.foreach(ExtrasState.resultados_extra, fila_resultado_extra),
                         rx.table.row(
                             rx.table.cell(rx.text("Promedio", weight="bold")),
                             rx.table.cell(""), rx.table.cell(""), rx.table.cell(""),
-                            rx.table.cell(rx.text(State.prom_sistema, weight="bold", color="#22d3ee")),
-                            rx.table.cell(rx.text(State.prom_espera, weight="bold", color="#f59e0b")),
+                            rx.table.cell(rx.text(ExtrasState.prom_sistema_extra, weight="bold", color="#22d3ee")),
+                            rx.table.cell(rx.text(ExtrasState.prom_espera_extra, weight="bold", color="#f59e0b")),
                             background="rgba(255,255,255,0.04)",
                         ),
                     ),
@@ -797,10 +849,10 @@ def seccion_resultados():
                     width="100%",
                 ),
                 rx.grid(
-                    tarjeta_promedio("Tiempo de espera promedio", State.prom_espera, "hourglass",
-                                     "stat-espera", "Espera = T. Sistema − Ráfaga"),
-                    tarjeta_promedio("Tiempo de sistema promedio", State.prom_sistema, "clock",
-                                     "stat-sistema", "Sistema = Finalización − Llegada"),
+                    tarjeta_promedio_extra("Tiempo de espera promedio", ExtrasState.prom_espera_extra, "hourglass",
+                                          "stat-espera", "Espera = T. Sistema − Ráfaga"),
+                    tarjeta_promedio_extra("Tiempo de sistema promedio", ExtrasState.prom_sistema_extra, "clock",
+                                          "stat-sistema", "Sistema = Finalización − Llegada"),
                     columns=rx.breakpoints(initial="1", sm="2"),
                     spacing="4",
                     width="100%",
@@ -813,9 +865,9 @@ def seccion_resultados():
 
 
 # =====================================================================
-#  COMPARACIÓN DE LOS 4 ALGORITMOS
+#  COMPARACIÓN DE LOS 2 ALGORITMOS EXTRAS
 # =====================================================================
-def tarjeta_ganador(titulo, nombre, valor, icono, clase):
+def tarjeta_ganador_extra(titulo, nombre, valor, icono, clase):
     return rx.vstack(
         rx.hstack(rx.icon(icono, size=20), rx.text(titulo, weight="medium", size="3"), align="center"),
         rx.hstack(
@@ -829,7 +881,7 @@ def tarjeta_ganador(titulo, nombre, valor, icono, clase):
     )
 
 
-def barra_comparacion(etiqueta, valor, ancho, color, gana):
+def barra_comparacion_extra(etiqueta, valor, ancho, color, gana):
     return rx.vstack(
         rx.hstack(
             rx.text(etiqueta, size="1", color_scheme="gray"),
@@ -851,12 +903,12 @@ def barra_comparacion(etiqueta, valor, ancho, color, gana):
     )
 
 
-def fila_comparacion(i, a):
-    c = State.comparacion[i]
+def fila_comparacion_extra(i, a):
+    c = ExtrasState.comparacion_extra[i]
     gana_alguno = (c["gana_espera"] == "si") | (c["gana_sistema"] == "si")
     return rx.grid(
         rx.hstack(
-            rx.center(rx.icon(a["icono"], size=18), class_name="icono-algo", width="36px", height="36px"),
+            rx.center(rx.icon(a["icono"], size=18), class_name="icono-algo-extra", width="36px", height="36px"),
             rx.vstack(
                 rx.text(a["nombre"], weight="bold", size="3"),
                 rx.cond(gana_alguno, rx.badge(rx.icon("trophy", size=12), "Más óptimo",
@@ -865,14 +917,14 @@ def fila_comparacion(i, a):
             ),
             align="center",
         ),
-        barra_comparacion("Tiempo de espera", c["espera"], c["ancho_espera"],
-                          "linear-gradient(90deg, #f59e0b, #f43f5e)", c["gana_espera"]),
-        barra_comparacion("Tiempo de sistema", c["sistema"], c["ancho_sistema"],
-                          "linear-gradient(90deg, #06b6d4, #8b5cf6)", c["gana_sistema"]),
+        barra_comparacion_extra("Tiempo de espera", c["espera"], c["ancho_espera"],
+                                "linear-gradient(90deg, #f59e0b, #f43f5e)", c["gana_espera"]),
+        barra_comparacion_extra("Tiempo de sistema", c["sistema"], c["ancho_sistema"],
+                                "linear-gradient(90deg, #06b6d4, #8b5cf6)", c["gana_sistema"]),
         rx.button(
             rx.icon("play", size=14), "Ver Gantt",
-            on_click=[State.elegir_algoritmo(a["nombre"]), State.simular, rx.scroll_to("gantt")],
-            variant="soft", size="2", disabled=State.animando,
+            on_click=[ExtrasState.elegir_algoritmo_extra(a["nombre"]), ExtrasState.simular_extra, rx.scroll_to("gantt-extra")],
+            variant="soft", size="2", disabled=ExtrasState.animando_extra,
         ),
         columns=rx.breakpoints(initial="1", md="170px 1fr 1fr auto"),
         spacing="5",
@@ -883,32 +935,32 @@ def fila_comparacion(i, a):
     )
 
 
-def seccion_comparacion():
+def seccion_comparacion_extra():
     return rx.cond(
-        State.comparacion.length() > 0,
+        ExtrasState.comparacion_extra.length() > 0,
         rx.box(
             rx.vstack(
-                titulo_seccion("trophy", "Comparación de algoritmos", "5"),
+                titulo_seccion_extra("trophy", "Comparación de algoritmos extras", "5"),
                 rx.grid(
-                    tarjeta_ganador("Mejor en tiempo de espera", State.mejor_espera,
-                                    State.mejor_espera_valor, "hourglass", "stat-espera"),
-                    tarjeta_ganador("Mejor en tiempo de sistema", State.mejor_sistema,
-                                    State.mejor_sistema_valor, "clock", "stat-sistema"),
+                    tarjeta_ganador_extra("Mejor en tiempo de espera", ExtrasState.mejor_espera_extra,
+                                         ExtrasState.mejor_espera_valor_extra, "hourglass", "stat-espera"),
+                    tarjeta_ganador_extra("Mejor en tiempo de sistema", ExtrasState.mejor_sistema_extra,
+                                         ExtrasState.mejor_sistema_valor_extra, "clock", "stat-sistema"),
                     columns=rx.breakpoints(initial="1", sm="2"),
                     spacing="4",
                     width="100%",
                 ),
                 rx.vstack(
-                    *[fila_comparacion(i, a) for i, a in enumerate(ALGORITMOS)],
+                    *[fila_comparacion_extra(i, a) for i, a in enumerate(ALGORITMOS_EXTRAS)],
                     spacing="3",
                     width="100%",
                 ),
                 rx.callout(
                     rx.text(
-                        "Todos se calcularon con la misma tabla. Prioridad usa la columna de prioridad "
-                        "y Round Robin usa quantum = ", rx.text.strong(State.quantum),
-                        ". Como T. Sistema = T. Espera + Ráfaga, y las ráfagas son las mismas para todos, "
-                        "el mejor en espera siempre es también el mejor en sistema.",
+                        "SRTF es la versión expropiativa de SJF y suele dar el menor tiempo de espera promedio. "
+                        "MLQ asigna los procesos a colas fijas según su prioridad: "
+                        "Cola 1 (prioridad 1-2, RR q=2), Cola 2 (prioridad 3-4, RR q=4), Cola 3 (prioridad 5+, FCFS). "
+                        "Las colas se atienden en orden estricto de arriba a abajo.",
                     ),
                     icon="info",
                     color_scheme="gray",
@@ -918,25 +970,24 @@ def seccion_comparacion():
                 spacing="5",
             ),
             class_name="vidrio aparecer",
-            id="comparacion",
+            id="comparacion-extra",
         ),
     )
 
 
 # =====================================================================
-#  PARTÍCULAS DE FONDO (vía rx.script)
+#  PARTÍCULAS DE FONDO
 # =====================================================================
-def particulas_fondo():
+def particulas_fondo_extra():
     return rx.script("""
     (function() {
-        if (document.getElementById('bg-particles-canvas')) return;
+        if (document.getElementById('bg-particles-canvas-extra')) return;
         const canvas = document.createElement('canvas');
-        canvas.id = 'bg-particles-canvas';
-        // z-index: 1 and appendChild ensures it renders over the background gradient but behind the UI cards
+        canvas.id = 'bg-particles-canvas-extra';
         canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;pointer-events:none;opacity:0.6;';
         document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
-        const COLORS = ['#8b5cf6','#06b6d4','#f43f5e','#22d3ee','#c4b5fd','#10b981'];
+        const COLORS = ['#06b6d4','#22d3ee','#8b5cf6','#f59e0b','#10b981','#f43f5e'];
         const NUM = 60;
         const CONNECT_DIST = 140;
         let particles = [];
@@ -989,7 +1040,7 @@ def particulas_fondo():
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = '#8b5cf6';
+                        ctx.strokeStyle = '#06b6d4';
                         ctx.globalAlpha = alpha;
                         ctx.lineWidth = 1;
                         ctx.stroke();
@@ -1005,17 +1056,21 @@ def particulas_fondo():
     """)
 
 
-def index():
+# =====================================================================
+#  PÁGINA
+# =====================================================================
+def extras_page():
     return rx.box(
-        particulas_fondo(),
+        particulas_fondo_extra(),
         rx.container(
             rx.vstack(
-                encabezado(),
-                seccion_algoritmo(),
-                seccion_procesos(),
-                seccion_gantt(),
-                seccion_resultados(),
-                seccion_comparacion(),
+                encabezado_extras(),
+                info_algoritmo_extra(),
+                seccion_algoritmo_extra(),
+                seccion_procesos_extra(),
+                seccion_gantt_extra(),
+                seccion_resultados_extra(),
+                seccion_comparacion_extra(),
                 rx.text("Desarrollado por: ", size="1", color_scheme="gray",
                         align_self="center"),
                 rx.text("Kevin Esteban Sánchez Torres ", size="1", color_scheme="gray",
@@ -1029,17 +1084,5 @@ def index():
             position="relative",
             z_index="1",
         ),
-        class_name="fondo",
+        class_name="fondo-extra",
     )
-
-
-from .extras import extras_page
-
-app = rx.App(
-    stylesheets=[
-        "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&family=JetBrains+Mono&display=swap",
-        "/styles.css",
-    ],
-)
-app.add_page(index, title="Simulador de algoritmos de despacho")
-app.add_page(extras_page, route="/extras", title="Algoritmos Extras — SRTF y MLQ")
