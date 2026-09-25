@@ -388,9 +388,12 @@ def info_algoritmo_extra():
                         ),
                         rx.separator(size="4"),
                         rx.text(
-                            "Versión expropiativa de SJF. Cada vez que un nuevo proceso llega, "
-                            "se compara su ráfaga con el tiempo restante del proceso en ejecución. "
-                            "Si el nuevo tiene menos tiempo restante, expulsa al actual.",
+                            "Versión expropiativa de SJF.",
+                            size="2", color_scheme="gray", margin_bottom="2",
+                        ),
+                        rx.text(
+                            "Cada vez que un nuevo proceso llega, se compara su ráfaga con el tiempo restante del proceso en ejecución. ",
+                            rx.text.strong("Si el nuevo tiene menos tiempo restante, expulsa al actual.", color_scheme="gray"),
                             size="2", color_scheme="gray", line_height="1.6",
                         ),
                         rx.hstack(
@@ -418,12 +421,19 @@ def info_algoritmo_extra():
                         ),
                         rx.separator(size="4"),
                         rx.text(
-                            "Divide los procesos en 3 colas según su prioridad. "
-                            "Cola 1 (prioridad 1-2): Round Robin q=2. "
-                            "Cola 2 (prioridad 3-4): Round Robin q=4. "
-                            "Cola 3 (prioridad 5+): FCFS. "
-                            "Las colas superiores siempre tienen preferencia.",
-                            size="2", color_scheme="gray", line_height="1.6",
+                            "Divide los procesos en 3 colas según su prioridad:",
+                            size="2", color_scheme="gray", margin_bottom="2",
+                        ),
+                        rx.vstack(
+                            rx.text("• ", rx.text.strong("Cola 1", color_scheme="gray"), " (prioridad 1-2): Round Robin q=2.", size="2", color_scheme="gray"),
+                            rx.text("• ", rx.text.strong("Cola 2", color_scheme="gray"), " (prioridad 3-4): Round Robin q=4.", size="2", color_scheme="gray"),
+                            rx.text("• ", rx.text.strong("Cola 3", color_scheme="gray"), " (prioridad 5+): FCFS.", size="2", color_scheme="gray"),
+                            spacing="1",
+                            align_items="start",
+                        ),
+                        rx.text(
+                            "Las colas superiores siempre tienen preferencia sobre las inferiores.",
+                            size="2", color_scheme="gray", margin_top="2",
                         ),
                         rx.hstack(
                             rx.badge("Multinivel", color_scheme="violet", radius="full"),
@@ -515,12 +525,22 @@ def seccion_procesos_extra():
                 wrap="wrap",
             ),
             rx.callout(
-                rx.text(
-                    "La columna ",
-                    rx.text.strong("Prioridad"),
-                    " es obligatoria para ambos algoritmos. En SRTF se usa solo como referencia. "
-                    "En MLQ determina la cola a la que pertenece el proceso: "
-                    "1-2 → Cola Alta (RR q=2), 3-4 → Cola Media (RR q=4), 5+ → Cola Baja (FCFS).",
+                rx.vstack(
+                    rx.text(
+                        "La columna ", rx.text.strong("Prioridad"), " es obligatoria para ambos algoritmos."
+                    ),
+                    rx.text("• En ", rx.text.strong("SRTF"), " se usa solo como referencia."),
+                    rx.text("• En ", rx.text.strong("MLQ"), " determina la cola a la que pertenece el proceso:"),
+                    rx.hstack(
+                        rx.badge("1-2 → Cola Alta (RR q=2)", color_scheme="violet"),
+                        rx.badge("3-4 → Cola Media (RR q=4)", color_scheme="blue"),
+                        rx.badge("5+ → Cola Baja (FCFS)", color_scheme="cyan"),
+                        spacing="2",
+                        wrap="wrap",
+                        margin_top="1"
+                    ),
+                    spacing="1",
+                    align_items="start"
                 ),
                 icon="info",
                 color_scheme="cyan",
@@ -956,11 +976,22 @@ def seccion_comparacion_extra():
                     width="100%",
                 ),
                 rx.callout(
-                    rx.text(
-                        "SRTF es la versión expropiativa de SJF y suele dar el menor tiempo de espera promedio. "
-                        "MLQ asigna los procesos a colas fijas según su prioridad: "
-                        "Cola 1 (prioridad 1-2, RR q=2), Cola 2 (prioridad 3-4, RR q=4), Cola 3 (prioridad 5+, FCFS). "
-                        "Las colas se atienden en orden estricto de arriba a abajo.",
+                    rx.vstack(
+                        rx.text(rx.text.strong("SRTF"), " suele dar el menor tiempo de espera promedio al ser expropiativo."),
+                        rx.text(rx.text.strong("MLQ"), " asigna los procesos a colas fijas según su prioridad:"),
+                        rx.hstack(
+                            rx.badge("Cola 1: Prioridad 1-2 (RR q=2)", color_scheme="violet"),
+                            rx.badge("Cola 2: Prioridad 3-4 (RR q=4)", color_scheme="blue"),
+                            rx.badge("Cola 3: Prioridad 5+ (FCFS)", color_scheme="cyan"),
+                            wrap="wrap",
+                            spacing="2",
+                        ),
+                        rx.text(
+                            "Las colas se atienden en orden estricto de mayor a menor prioridad.",
+                            size="2", color_scheme="gray",
+                        ),
+                        spacing="1",
+                        align_items="start"
                     ),
                     icon="info",
                     color_scheme="gray",
