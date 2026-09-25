@@ -11,6 +11,7 @@
     radial-gradient(circle at 90% 25%, rgba(6, 182, 212, 0.18), transparent 40%),
     radial-gradient(circle at 50% 100%, rgba(244, 63, 94, 0.12), transparent 45%),
     #0a0a13;
+  position: relative;
 }
 
 .titulo-gradiente {
@@ -73,49 +74,36 @@
   box-shadow: 0 12px 30px rgba(139, 92, 246, 0.6);
 }
 
-/* ---------- Diagrama de Gantt ---------- */
-@keyframes crecer {
-  from { transform: scaleX(0); opacity: 0; }
-  to   { transform: scaleX(1); opacity: 1; }
-}
-.bloque {
-  transform-origin: left center;
-  animation: crecer 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+/* ---------- Diagrama de Gantt Multi-Fila ---------- */
+.gantt-segmento {
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: width 0.1s linear;
+  overflow: hidden;
 }
 
-.barra {
-  position: relative;
-  overflow: hidden;
-  height: 60px;
-  border-right: 2px solid #0a0a13;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 20px rgba(0, 0, 0, 0.35);
-}
-/* Destello que recorre cada bloque cuando aparece */
-.barra::after {
+/* Efecto de brillo que recorre cada segmento */
+.gantt-segmento::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 70%
+  );
   transform: translateX(-100%);
-  animation: barrido 0.9s 0.35s ease forwards;
-}
-@keyframes barrido {
-  to { transform: translateX(100%); }
+  animation: gantt-brillo 1.8s ease infinite;
+  pointer-events: none;
 }
 
-.primero .barra { border-radius: 12px 0 0 12px; }
-
-.marca {
-  position: absolute;
-  bottom: 0;
-  right: -6px;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
-  color: #a1a1aa;
-}
-.marca-cero {
-  right: auto;
-  left: -4px;
+@keyframes gantt-brillo {
+  0%   { transform: translateX(-100%); }
+  40%  { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
 }
 
 /* ---------- Apariciones suaves ---------- */
@@ -153,4 +141,15 @@
   font-size: 44px;
   font-weight: 800;
   line-height: 1;
+}
+
+/* ---------- Partículas de fondo ---------- */
+#bg-particles-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
 }

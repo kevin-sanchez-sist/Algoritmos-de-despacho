@@ -20,7 +20,9 @@ ALGORITMOS = [
     {"nombre": "Prioridad", "icono": "crown", "desc": "Menor número = mayor prioridad"},
     {"nombre": "Round Robin", "icono": "refresh-cw", "desc": "Turnos rotativos con un quantum fijo"},
 ]
-PAUSAS = {"Lenta": 1.2, "Normal": 0.7, "Rápida": 0.3}
+
+# Factor de velocidad: cuántos segundos dura 1 unidad de tiempo
+VELOCIDADES = {"Lenta": 1.0, "Normal": 0.5, "Rápida": 0.2}
 
 
 def crear_proceso(n, llegada, rafaga, prioridad):
@@ -48,8 +50,29 @@ class State(rx.State):
         crear_proceso(5, 4, 2, 5),
     ]
 
-    # Resultado de la simulación
-    gantt: list[dict[str, str]] = []
+    # Gantt multi-fila: flat list of segments, each with process info
+    # Each segment: {nombre, color, left_pct, ancho_pct}
+    gantt_segmentos: list[dict[str, str]] = []
+    # Process row info: {nombre, color}
+    gantt_procesos: list[dict[str, str]] = []
+    # Progreso actual de la animación
+    gantt_progreso: float = 0.0
+    # Porcentaje de progreso precalculado como string CSS
+    gantt_progreso_pct: str = "0%"
+    # Marcas de tiempo (líneas verticales)
+    gantt_marcas: list[dict[str, str]] = []
+    # Máscara clip-path para revelar fluidamente
+    gantt_clip_path: str = "inset(0 100% 0 0)"
+    # Transición CSS dinámica para el progreso
+    gantt_progreso_transition: str = "none"
+
+    @rx.var
+    def gantt_altura(self) -> str:
+        """Altura dinámica del contenedor de Gantt calculada en base a los procesos."""
+        if not self.procesos:
+            return "100px"
+        return f"{len(self.procesos) * 44 + 8}px"
+
     resultados: list[dict[str, str]] = []
     prom_espera: str = ""
     prom_sistema: str = ""
@@ -90,7 +113,6 @@ class State(rx.State):
     def eliminar(self, i: int):
         if len(self.procesos) > 1:
             restantes = [p for j, p in enumerate(self.procesos) if j != i]
-            # Se vuelven a numerar P1, P2, ... para que no queden huecos
             self.procesos = [
                 crear_proceso(n, p["llegada"], p["rafaga"], p["prioridad"])
                 for n, p in enumerate(restantes, start=1)
@@ -106,7 +128,13 @@ class State(rx.State):
         self._limpiar()
 
     def _limpiar(self):
-        self.gantt = []
+        self.gantt_segmentos = []
+        self.gantt_procesos = []
+        self.gantt_progreso = 0.0
+        self.gantt_progreso_pct = "0%"
+        self.gantt_marcas = []
+        self.gantt_clip_path = "inset(0 100% 0 0)"
+        self.gantt_progreso_transition = "none"
         self.resultados = []
         self.ejecutando = ""
         self.tiempo_actual = "0"
@@ -134,7 +162,23 @@ class State(rx.State):
             raise ValueError("El quantum debe ser un número entero ≥ 1.")
         return datos, quantum
 
-    # ---------- Simulación animada ----------
+    def _reconstruir_segmentos(self, filas_dict, nombres_procesos, total):
+        """Reconstruct flat segment list from filas_dict for the UI."""
+        all_segs = []
+        for proc_idx, nombre in enumerate(nombres_procesos):
+            # Each row is 36px height + 8px gap = 44px stride
+            top_px = f"{proc_idx * 44}px"
+            for seg in filas_dict[nombre]["segmentos"]:
+                all_segs.append({
+                    "nombre": nombre,
+                    "color": seg["color"],
+                    "left_pct": seg["left_pct"],
+                    "ancho_pct": seg["ancho_pct"],
+                    "fila_top": top_px,
+                })
+        self.gantt_segmentos = all_segs
+
+    # ---------- Simulación animada multi-fila ----------
     @rx.event(background=True)
     async def simular(self):
         async with self:
@@ -147,27 +191,93 @@ class State(rx.State):
                 self.error = str(e)
                 return
             self.animando = True
-            algoritmo = self.algoritmo
-            pausa = PAUSAS[self.velocidad]
+            algoritmo_nombre = self.algoritmo
+            velocidad_factor = VELOCIDADES[self.velocidad]
 
-        bloques = algoritmos.ejecutar(algoritmo, datos, quantum)
+        bloques = algoritmos.ejecutar(algoritmo_nombre, datos, quantum)
         colores = {p["nombre"]: p["color"] for p in datos}
-        total = bloques[-1]["fin"]  # duración total, para que el Gantt ocupe el 100% del ancho
+        total = bloques[-1]["fin"] if bloques else 1
 
-        # Se agrega un bloque al Gantt cada `pausa` segundos
+        # Build process rows
+        nombres_procesos = [p["nombre"] for p in datos]
+        proc_rows = [{"nombre": p["nombre"], "color": p["color"]} for p in datos]
+
+        async with self:
+            self.gantt_procesos = proc_rows
+
+        # Track segments per process
+        filas_dict = {}
+        for nombre in nombres_procesos:
+            filas_dict[nombre] = {"segmentos": []}
+
+        # Prepare result data
+        filas_resultado, prom_espera, prom_sistema = algoritmos.calcular_tiempos(datos, bloques)
+
+        # 1. Pre-calculate all segments and marks
+        marcas = [{"tiempo": "0", "left_pct": "0%"}]
+        tiempos_vistos = {"0"}
+        
         for b in bloques:
-            async with self:
-                self.gantt = self.gantt + [{
-                    "nombre": b["nombre"],
-                    "fin": str(b["fin"]),
-                    "color": colores.get(b["nombre"], COLOR_OCIOSO),
-                    "ancho": f"{(b['fin'] - b['inicio']) / total * 100}%",
-                }]
-                self.ejecutando = b["nombre"]
-                self.tiempo_actual = str(b["fin"])
-            await asyncio.sleep(pausa)
+            nombre = b["nombre"]
+            inicio = b["inicio"]
+            fin = b["fin"]
+            duracion = fin - inicio
+            
+            # Add time mark if not present
+            t_str = str(fin)
+            if t_str not in tiempos_vistos:
+                marcas.append({"tiempo": t_str, "left_pct": f"{(fin / total) * 100:.2f}%"})
+                tiempos_vistos.add(t_str)
+                
+            if nombre == "Ocioso":
+                continue
+            
+            color = colores.get(nombre, "#52525b")
+            filas_dict[nombre]["segmentos"].append({
+                "inicio": str(inicio),
+                "color": color,
+                "ancho_pct": f"{(duracion / total) * 100:.2f}%",
+                "left_pct": f"{(inicio / total) * 100:.2f}%",
+            })
+            
+        # Reconstruct exactly once and yield to render the fully constructed (but clipped) DOM
+        async with self:
+            self._reconstruir_segmentos(filas_dict, nombres_procesos, total)
+            self.gantt_marcas = marcas
+            self.gantt_clip_path = "inset(0 100% 0 0)"
+            self.gantt_progreso_pct = "0%"
+            self.gantt_progreso_transition = "none"
+            self.tiempo_actual = "0"
+            
+        # Pequeña pausa para que Reflex renderice el DOM inicial antes de empezar las transiciones CSS
+        await asyncio.sleep(0.1)
 
-        filas, prom_espera, prom_sistema = algoritmos.calcular_tiempos(datos, bloques)
+        # 2. Disparar la animación visual en un solo movimiento fluido de CSS
+        tiempo_total_real = total * velocidad_factor
+        async with self:
+            if total > 0:
+                self.gantt_progreso_pct = "100%"
+                self.gantt_clip_path = "inset(0 0% 0 0)"
+                self.gantt_progreso_transition = f"clip-path {tiempo_total_real}s linear, left {tiempo_total_real}s linear, width {tiempo_total_real}s linear"
+
+        # 3. Bucle ligero solo para actualizar los textos ("Ejecutando Px" y tiempo) en sincronía
+        for b in bloques:
+            nombre = b["nombre"]
+            inicio = b["inicio"]
+            fin = b["fin"]
+            duracion = fin - inicio
+            duracion_real = duracion * velocidad_factor
+
+            async with self:
+                self.ejecutando = nombre
+                self.tiempo_actual = str(inicio)
+
+            # Wait exactly the real duration of this block
+            await asyncio.sleep(duracion_real)
+            
+            async with self:
+                self.tiempo_actual = str(fin)
+
         async with self:
             self.resultados = [
                 {
@@ -180,7 +290,7 @@ class State(rx.State):
                     "espera": str(f["espera"]),
                     "retraso": f"{i * 0.12}s",
                 }
-                for i, f in enumerate(filas)
+                for i, f in enumerate(filas_resultado)
             ]
             self.prom_espera = f"{prom_espera:.2f}"
             self.prom_sistema = f"{prom_sistema:.2f}"
@@ -246,7 +356,7 @@ def seccion_algoritmo():
 
 def punto_color(color):
     return rx.box(width="12px", height="12px", border_radius="50%", background=color,
-                  box_shadow="0 0 10px " + color, flex_shrink="0")
+                  flex_shrink="0")
 
 
 def campo_numero(valor, al_cambiar):
@@ -317,7 +427,7 @@ def seccion_procesos():
                     rx.icon("gauge", size=18, color="#a78bfa"),
                     rx.text("Velocidad", weight="medium"),
                     rx.segmented_control.root(
-                        *[rx.segmented_control.item(v, value=v) for v in PAUSAS],
+                        *[rx.segmented_control.item(v, value=v) for v in VELOCIDADES],
                         value=State.velocidad,
                         on_change=State.set_velocidad,
                     ),
@@ -347,21 +457,40 @@ def seccion_procesos():
     )
 
 
-def bloque_gantt(b, i):
-    es_ocioso = b["nombre"] == "Ocioso"
+# =====================================================================
+#  DIAGRAMA DE GANTT MULTI-FILA
+# =====================================================================
+
+def segmento_gantt(seg):
+    """A single segment positioned absolutely within its row."""
     return rx.box(
         rx.center(
-            rx.text(rx.cond(es_ocioso, "—", b["nombre"]), weight="bold", size="3",
-                    color=rx.cond(es_ocioso, "#71717a", "white")),
-            class_name="barra",
-            background=b["color"],
+            rx.text(seg["nombre"], weight="bold", size="1", color="white"),
+            height="100%",
         ),
-        rx.cond(i == 0, rx.text("0", class_name="marca marca-cero")),
-        rx.text(b["fin"], class_name="marca"),
-        class_name=rx.cond(i == 0, "bloque primero", "bloque"),
-        width=b["ancho"],
-        position="relative",
-        padding_bottom="26px",
+        position="absolute",
+        left=seg["left_pct"],
+        width=seg["ancho_pct"],
+        top=seg["fila_top"],
+        height="36px",
+        background=seg["color"],
+        class_name="gantt-segmento",
+        overflow="hidden",
+    )
+
+
+def fila_proceso_gantt(proc):
+    """Label for a process row in the Gantt chart."""
+    return rx.hstack(
+        rx.box(
+            width="10px", height="10px", border_radius="50%",
+            background=proc["color"],
+            flex_shrink="0",
+        ),
+        rx.text(proc["nombre"], weight="bold", size="2", white_space="nowrap"),
+        align="center",
+        spacing="2",
+        height="36px",
     )
 
 
@@ -382,24 +511,123 @@ def estado_gantt():
     )
 
 
+def leyenda_velocidad():
+    """Muestra la escala de tiempo real."""
+    return rx.cond(
+        State.animando,
+        rx.hstack(
+            rx.icon("clock", size=14, color="#a78bfa"),
+            rx.text(
+                "1 u.t. = ",
+                rx.cond(State.velocidad == "Lenta", "1.0s",
+                        rx.cond(State.velocidad == "Normal", "0.5s", "0.2s")),
+                " real",
+                size="1", color_scheme="gray",
+            ),
+            align="center",
+            spacing="1",
+        ),
+    )
+
+
 def seccion_gantt():
     return rx.box(
         rx.vstack(
             rx.hstack(
                 titulo_seccion("chart-no-axes-gantt", "Diagrama de Gantt", "3"),
                 rx.spacer(),
+                leyenda_velocidad(),
                 estado_gantt(),
                 width="100%",
                 align="center",
                 wrap="wrap",
+                gap="3",
             ),
             rx.cond(
-                State.gantt.length() > 0,
-                rx.hstack(
-                    rx.foreach(State.gantt, bloque_gantt),
-                    spacing="0",
+                State.gantt_procesos.length() > 0,
+                rx.vstack(
+                    rx.hstack(
+                        # Left column: process labels
+                        rx.vstack(
+                            rx.foreach(State.gantt_procesos, fila_proceso_gantt),
+                            spacing="2",
+                            min_width="70px",
+                        ),
+                        # Right column: Gantt bars area
+                        rx.box(
+                            # Marcas de tiempo (Líneas divisorias verticales)
+                            rx.foreach(State.gantt_marcas, lambda m: rx.box(
+                                position="absolute",
+                                top="0", bottom="0", left=m["left_pct"],
+                                border_left="1px dashed rgba(255,255,255,0.15)",
+                                z_index="0",
+                            )),
+                            # Container con clip-path mask para revelar los segmentos
+                            rx.box(
+                                rx.foreach(State.gantt_segmentos, segmento_gantt),
+                                position="absolute",
+                                inset="0",
+                                clip_path=State.gantt_clip_path,
+                                transition=State.gantt_progreso_transition,
+                                z_index="1",
+                            ),
+                            # Progress line
+                            rx.box(
+                                position="absolute",
+                                left=State.gantt_progreso_pct,
+                                top="0",
+                                bottom="0",
+                                width="2px",
+                                background="#22d3ee",
+                                box_shadow="0 0 8px #22d3ee",
+                                transition=State.gantt_progreso_transition,
+                                z_index="10",
+                            ),
+                            position="relative",
+                            width="100%",
+                            height=State.gantt_altura,
+                            background="rgba(255,255,255,0.02)",
+                            border_radius="12px",
+                            border="1px solid rgba(255,255,255,0.06)",
+                            overflow="hidden",
+                            padding="4px 0",
+                        ),
+                        width="100%",
+                        align="start",
+                        spacing="3",
+                    ),
+                    # Time axis
+                    rx.hstack(
+                        rx.box(min_width="70px"),
+                        rx.box(
+                            # Contenedor relativo para el eje de tiempo
+                            rx.box(
+                                position="absolute",
+                                left="0", top="0", bottom="0",
+                                width=State.gantt_progreso_pct,
+                                background="linear-gradient(90deg, rgba(139,92,246,0.12), rgba(34,211,238,0.08))",
+                                transition=State.gantt_progreso_transition,
+                            ),
+                            # Números de las marcas
+                            rx.foreach(State.gantt_marcas, lambda m: rx.box(
+                                rx.text(m["tiempo"], size="1", color="#a1a1aa", font_family="JetBrains Mono"),
+                                position="absolute",
+                                top="2px", left=m["left_pct"],
+                                transform="translateX(-50%)",
+                            )),
+                            position="relative",
+                            height="24px",
+                            width="100%",
+                            background="rgba(255,255,255,0.02)",
+                            border_radius="4px",
+                            border="1px solid rgba(255,255,255,0.04)",
+                        ),
+                        width="100%",
+                        spacing="3",
+                    ),
+                    spacing="2",
                     width="100%",
-                    padding="8px 10px 0 6px",
+                    padding="12px 10px 0 6px",
                 ),
                 rx.center(
                     rx.vstack(
@@ -505,8 +733,91 @@ def seccion_resultados():
     )
 
 
+# =====================================================================
+#  PARTÍCULAS DE FONDO (vía rx.script)
+# =====================================================================
+def particulas_fondo():
+    return rx.script("""
+    (function() {
+        if (document.getElementById('bg-particles-canvas')) return;
+        const canvas = document.createElement('canvas');
+        canvas.id = 'bg-particles-canvas';
+        // z-index: 1 and appendChild ensures it renders over the background gradient but behind the UI cards
+        canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;pointer-events:none;opacity:0.6;';
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const COLORS = ['#8b5cf6','#06b6d4','#f43f5e','#22d3ee','#c4b5fd','#10b981'];
+        const NUM = 60;
+        const CONNECT_DIST = 140;
+        let particles = [];
+        
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resize();
+        window.addEventListener('resize', resize);
+        
+        class Particle {
+            constructor(init) {
+                this.x = Math.random() * canvas.width;
+                this.y = init ? Math.random() * canvas.height : (Math.random() < 0.5 ? -5 : canvas.height + 5);
+                this.r = Math.random() * 2 + 1;
+                this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                const a = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 0.5 + 0.2;
+                this.vx = Math.cos(a) * speed;
+                this.vy = Math.sin(a) * speed;
+                this.alpha = Math.random() * 0.5 + 0.2;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < -10) this.x = canvas.width + 10;
+                if (this.x > canvas.width + 10) this.x = -10;
+                if (this.y < -10) this.y = canvas.height + 10;
+                if (this.y > canvas.height + 10) this.y = -10;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+        for (let i = 0; i < NUM; i++) particles.push(new Particle(true));
+        
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => p.update());
+            
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < CONNECT_DIST) {
+                        const alpha = (1 - dist/CONNECT_DIST) * 0.18;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = '#8b5cf6';
+                        ctx.globalAlpha = alpha;
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    }
+                }
+            }
+            particles.forEach(p => p.draw());
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    })();
+    """)
+
+
 def index():
     return rx.box(
+        particulas_fondo(),
         rx.container(
             rx.vstack(
                 encabezado(),
@@ -520,6 +831,8 @@ def index():
                 padding_y="48px",
             ),
             size="4",
+            position="relative",
+            z_index="1",
         ),
         class_name="fondo",
     )
