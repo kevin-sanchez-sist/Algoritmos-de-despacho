@@ -298,3 +298,246 @@
   box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15);
 }
 
+/* ==========================================================================
+   ESCENARIOS PAGE — Algoritmos en la Vida Real
+   ========================================================================== */
+
+/* ---------- Fondo ---------- */
+.fondo-esc {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(16, 185, 129, 0.28), transparent 40%),
+    radial-gradient(circle at 90% 25%, rgba(52, 211, 153, 0.18), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(6, 182, 212, 0.12), transparent 45%),
+    #0a0a13;
+  position: relative;
+}
+
+.titulo-gradiente-esc {
+  background: linear-gradient(90deg, #6ee7b7, #34d399, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Tarjetas de escenario ---------- */
+.tarjeta-escenario {
+  cursor: pointer;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  height: 100%;
+}
+.tarjeta-escenario:hover {
+  transform: translateY(-6px);
+  border-color: rgba(52, 211, 153, 0.4);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.2);
+}
+.tarjeta-escenario.activa-esc {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.08));
+  border-color: rgba(52, 211, 153, 0.8);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.3), 0 16px 45px rgba(16, 185, 129, 0.3);
+}
+
+/* ---------- Iconos de escenario ---------- */
+.icono-banco, .icono-hospital, .icono-super, .icono-call {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icono-banco { background: linear-gradient(135deg, #10b981, #059669); }
+.icono-hospital { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.icono-super { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.icono-call { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+/* ---------- Botón simular escenarios ---------- */
+.boton-simular-esc {
+  background: linear-gradient(135deg, #10b981, #06b6d4) !important;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.boton-simular-esc:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6);
+}
+
+/* ---------- Tarjetas de contexto y explicación ---------- */
+.tarjeta-contexto-esc {
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(6, 182, 212, 0.04));
+}
+
+.tarjeta-explicacion-esc {
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(6, 182, 212, 0.04));
+  position: relative;
+  overflow: hidden;
+}
+.tarjeta-explicacion-esc::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+}
+
+/* ---------- Punto vivo escenarios ---------- */
+.punto-vivo-esc {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 12px #34d399;
+  animation: latido 1s infinite;
+}
+
+/* ---------- Stat sistema escenarios ---------- */
+.stat-sistema-esc {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.14));
+}
+
+/* ---------- Botón navegación a escenarios ---------- */
+.boton-escenarios-nav {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.45), 0 0 0 1px rgba(16, 185, 129, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.boton-escenarios-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.boton-escenarios-nav:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.6), 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+.boton-escenarios-nav:hover::before {
+  opacity: 1;
+}
+@keyframes pulso-escenarios {
+  0%, 100% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.45), 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.45), 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+.boton-escenarios-nav {
+  animation: pulso-escenarios 2.5s ease infinite;
+}
+.boton-escenarios-nav:hover {
+  animation: none;
+}
+
+/* ==========================================================================
+   ANÁLISIS PAGE — Barrido de Quantum, Recomendador y Monte Carlo
+   ========================================================================== */
+
+/* ---------- Fondo ---------- */
+.fondo-analisis {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(245, 158, 11, 0.28), transparent 40%),
+    radial-gradient(circle at 90% 25%, rgba(250, 204, 21, 0.15), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.12), transparent 45%),
+    #0a0a13;
+  position: relative;
+}
+
+.titulo-gradiente-analisis {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #f43f5e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Botón de análisis ---------- */
+.boton-analisis {
+  background: linear-gradient(135deg, #f59e0b, #f43f5e) !important;
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.boton-analisis:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.6);
+}
+
+/* ---------- Botón navegación a análisis ---------- */
+.boton-analisis-nav {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #f43f5e);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.45), 0 0 0 1px rgba(245, 158, 11, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.boton-analisis-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.boton-analisis-nav:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.6), 0 0 0 1px rgba(245, 158, 11, 0.3);
+}
+.boton-analisis-nav:hover::before {
+  opacity: 1;
+}
+@keyframes pulso-analisis {
+  0%, 100% { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.45), 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.45), 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+.boton-analisis-nav {
+  animation: pulso-analisis 2.5s ease infinite;
+}
+.boton-analisis-nav:hover {
+  animation: none;
+}
+
+/* ---------- Tarjeta de recomendación ---------- */
+.tarjeta-recomendacion {
+  padding: 24px;
+  border-radius: 20px;
+  border: 2px solid rgba(250, 204, 21, 0.3);
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.08), rgba(245, 158, 11, 0.04));
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.tarjeta-recomendacion::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #facc15, #f59e0b, #f43f5e);
+}
+
+/* ---------- Texto de recomendación ---------- */
+.texto-recomendacion {
+  line-height: 1.8;
+  color: #d4d4d8;
+}
+.texto-recomendacion strong {
+  color: #fbbf24;
+}
+

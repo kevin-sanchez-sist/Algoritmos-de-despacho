@@ -347,6 +347,20 @@ def encabezado_extras():
                 href="/",
                 underline="none",
             ),
+            rx.link(
+                rx.box(
+                    rx.hstack(
+                        rx.icon("globe", size=18, color="white"),
+                        rx.text("Vida Real", weight="bold", size="2", color="white",
+                                display=rx.breakpoints(initial="none", sm="block")),
+                        align="center",
+                        spacing="1",
+                    ),
+                    class_name="boton-escenarios-nav",
+                ),
+                href="/escenarios",
+                underline="none",
+            ),
             rx.spacer(),
             rx.badge(rx.icon("flask-conical", size=14), "Algoritmos Extras", variant="soft",
                      radius="full", size="2", color_scheme="cyan"),

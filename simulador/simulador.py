@@ -360,6 +360,34 @@ def encabezado():
             rx.link(
                 rx.box(
                     rx.hstack(
+                        rx.icon("globe", size=18, color="white"),
+                        rx.text("Vida Real", weight="bold", size="2", color="white",
+                                display=rx.breakpoints(initial="none", sm="block")),
+                        align="center",
+                        spacing="1",
+                    ),
+                    class_name="boton-escenarios-nav",
+                ),
+                href="/escenarios",
+                underline="none",
+            ),
+            rx.link(
+                rx.box(
+                    rx.hstack(
+                        rx.icon("brain", size=18, color="white"),
+                        rx.text("Análisis", weight="bold", size="2", color="white",
+                                display=rx.breakpoints(initial="none", sm="block")),
+                        align="center",
+                        spacing="1",
+                    ),
+                    class_name="boton-analisis-nav",
+                ),
+                href="/analisis",
+                underline="none",
+            ),
+            rx.link(
+                rx.box(
+                    rx.hstack(
                         rx.icon("plus", size=18, color="white"),
                         rx.text("Extras", weight="bold", size="2", color="white",
                                 display=rx.breakpoints(initial="none", sm="block")),
@@ -373,6 +401,7 @@ def encabezado():
             ),
             width="100%",
             align="center",
+            gap="3",
         ),
         rx.heading("Simulador de Planificación de CPU", size="9", weight="bold",
                    class_name="titulo-gradiente", text_align="center"),
@@ -1034,6 +1063,8 @@ def index():
 
 
 from .extras import extras_page
+from .escenarios import escenarios_page
+from .analisis import analisis_page
 
 app = rx.App(
     stylesheets=[
@@ -1043,3 +1074,5 @@ app = rx.App(
 )
 app.add_page(index, title="Simulador de algoritmos de despacho")
 app.add_page(extras_page, route="/extras", title="Algoritmos Extras — SRTF y MLQ")
+app.add_page(escenarios_page, route="/escenarios", title="Escenarios — Algoritmos en la Vida Real")
+app.add_page(analisis_page, route="/analisis", title="Análisis Avanzado — Quantum y Monte Carlo")
