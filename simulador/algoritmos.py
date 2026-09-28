@@ -56,39 +56,38 @@ def prioridad(procesos):
 
 
 def round_robin(procesos, quantum):
-    pendientes = sorted(procesos, key=lambda p: p["llegada"])
+    """Recorre los procesos en círculo, en orden de llegada (P1 → P2 → … → Pn → P1 …).
+    A cada uno le da como máximo `quantum` unidades y salta a los que
+    todavía no han llegado o ya terminaron."""
+    orden = sorted(procesos, key=lambda p: p["llegada"])
     restante = {p["nombre"]: p["rafaga"] for p in procesos}
-    cola = deque()
     tiempo = 0
     gantt = []
-    i = 0  # índice del próximo proceso por llegar
+    turno = 0  # posición en `orden` desde donde se busca el siguiente
 
-    def encolar_llegadas():
-        nonlocal i
-        while i < len(pendientes) and pendientes[i]["llegada"] <= tiempo:
-            cola.append(pendientes[i])
-            i += 1
+    while any(restante.values()):
+        # Buscar, dando la vuelta al círculo, el siguiente proceso listo
+        elegido = None
+        for k in range(len(orden)):
+            pos = (turno + k) % len(orden)
+            p = orden[pos]
+            if p["llegada"] <= tiempo and restante[p["nombre"]] > 0:
+                elegido = pos
+                break
 
-    encolar_llegadas()
-    while cola or i < len(pendientes):
-        if not cola:
-            siguiente = pendientes[i]["llegada"]
+        if elegido is None:
+            # Nadie listo: la CPU espera al próximo proceso que llegue
+            siguiente = min(p["llegada"] for p in orden if restante[p["nombre"]] > 0)
             gantt.append({"nombre": OCIOSO, "inicio": tiempo, "fin": siguiente})
             tiempo = siguiente
-            encolar_llegadas()
             continue
 
-        p = cola.popleft()
+        p = orden[elegido]
         uso = min(quantum, restante[p["nombre"]])
         gantt.append({"nombre": p["nombre"], "inicio": tiempo, "fin": tiempo + uso})
         tiempo += uso
         restante[p["nombre"]] -= uso
-
-        # Los que llegaron durante este turno entran a la cola antes
-        # que el proceso que acaba de salir de la CPU
-        encolar_llegadas()
-        if restante[p["nombre"]] > 0:
-            cola.append(p)
+        turno = elegido + 1  # el siguiente turno es para el que sigue en el círculo
 
     return gantt
 
